@@ -1,0 +1,31 @@
+[package]
+name = "vulturius-gui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Tauri GUI for Vulturius - intelligent disk analysis and cleanup"
+
+[dependencies]
+# Workspace dependencies
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+chrono.workspace = true
+anyhow.workspace = true
+uuid.workspace = true
+
+# Tauri 2
+tauri = { workspace = true }
+tauri-plugin-shell = { workspace = true }
+tauri-plugin-dialog = { workspace = true }
+tauri-plugin-fs = { workspace = true }
+tauri-plugin-notification = { workspace = true }
+
+# Workspace-local
+vulturius-core = { workspace = true }
+
+[build-dependencies]
+tauri-build = "2"

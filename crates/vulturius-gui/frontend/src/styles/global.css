@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════
+   VULTURIUS — FUI (Futuristic User Interface) Design System
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Base Reset ──────────────────────────────────────────── */
+
+:root {
+  --fui-void: #000008;
+  --fui-panel: rgba(10, 10, 26, 0.65);
+  --fui-cyan: #00F0FF;
+  --fui-teal: #00D4AA;
+  --fui-amber: #FFB800;
+  --fui-crimson: #FF2D55;
+  --fui-purple: #B829FF;
+  --fui-white: #E8E8FF;
+  --fui-glow: 0 0 20px rgba(0, 240, 255, 0.3), 0 0 40px rgba(0, 240, 255, 0.1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--fui-void);
+  color: var(--fui-white);
+  font-family: 'Inter', 'SF Pro', system-ui, sans-serif;
+}
+
+/* ── Glass Panel ─────────────────────────────────────────── */
+
+.fui-glass {
+  background: var(--fui-panel);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  border-radius: 12px;
+}
+
+/* ── Neon Glow Effects ─────────────────────────────────── */
+
+.glow-text-cyan {
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.5), 0 0 20px rgba(0, 240, 255, 0.3);
+}
+
+.glow-border-cyan {
+  box-shadow: inset 0 0 0 1px rgba(0, 240, 255, 0.2), var(--fui-glow);
+}
+
+/* ── Scan-line Overlay ─────────────────────────────────── */
+
+.scan-line-overlay {
+  position: relative;
+  overflow: hidden;
+}
+
+.scan-line-overlay::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 240, 255, 0.015) 2px,
+    rgba(0, 240, 255, 0.015) 4px
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ── Custom Scrollbar ──────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.2);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.4);
+}
+
+/* ── Selection ─────────────────────────────────────────── */
+
+::selection {
+  background: rgba(0, 240, 255, 0.3);
+  color: var(--fui-white);
+}
+
+/* ── Data Readout Numbers ─────────────────────────────── */
+
+.data-number {
+  font-family: 'JetBrains Mono', 'IBM Plex Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* ── Hover Interactions ────────────────────────────────── */
+
+.fui-hover {
+  transition: all 0.2s ease;
+}
+
+.fui-hover:hover {
+  box-shadow: var(--fui-glow);
+  border-color: rgba(0, 240, 255, 0.3);
+}
+
+/* ── Ambient Background ────────────────────────────────── */
+
+.ambient-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(0, 240, 255, 0.03) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(184, 41, 255, 0.02) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(0, 212, 170, 0.02) 0%, transparent 50%),
+    var(--fui-void);
+}

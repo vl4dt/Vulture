@@ -1,0 +1,20 @@
+{
+  "identifier": "default",
+  "description": "Default capability for Vulturius",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "shell:allow-open",
+    "dialog:default",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    "fs:allow-read-dir",
+    "fs:allow-copy-file",
+    "fs:allow-mkdir",
+    "fs:remove",
+    "fs:watch",
+    "fs:write-all",
+    "fs:read-all",
+    "notification:default"
+  ]
+}

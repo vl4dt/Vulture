@@ -2,6 +2,7 @@
 members = [
     "crates/vulturius-core",
     "crates/vulturius-cli",
+    "crates/vulturius-gui",
 ]
 resolver = "2"
 
@@ -55,6 +56,14 @@ chrono = { version = "0.4", features = ["serde"] }
 humansize = "2"
 pathdiff = "0.2"
 mime_guess = "2"
+uuid = { version = "1", features = ["v4"] }
+
+# Tauri
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-notification = "2"
 
 # Workspace-local
 vulturius-core = { path = "crates/vulturius-core" }
