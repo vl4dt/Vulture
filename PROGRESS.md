@@ -1,17 +1,17 @@
 # Vulturius — Development Progress Tracker
 
-> Auto-maintained across sessions. Last updated: 2026-05-05
+> Auto-maintained across sessions. Last updated: 2026-05-05 (Session 1 — Phase 4 complete)
 
 ---
 
-## Overall Status: Phase 3 ✅ | Phase 4 🚧
+## Overall Status: Phases 1-4 ✅ | Phase 5 ❌
 
 | Phase | Description | Status | Completion |
 |-------|-------------|--------|------------|
 | Phase 1 | Foundation (workspace, platform layer, scanner, config, CLI skeleton, DB) | ✅ Complete | 100% |
 | Phase 2 | Core Engine (parallel scanner, classifier, analyzer, scoring, app detection) | ✅ Complete | 100% |
 | Phase 3 | Cleanup Engine (cleaner, quarantine, undo journal, CLI commands) | ✅ Complete | 100% |
-| Phase 4 | Windows Registry (orphan detection, backup/restore, cleaner) | 🚧 In Progress | 0% |
+| Phase 4 | Windows Registry (orphan detection, backup/restore, cleaner) | ✅ Complete | 100% |
 | Phase 5 | LLM Integration (OpenAI, Ollama, caching, NL queries) | ❌ Not Started | 0% |
 | Phase 6 | Tauri GUI (Svelte 5, FUI design, 3D orb, pages) | ❌ Not Started | 0% |
 | Phase 7 | Polish & Release (CI/CD, packaging, docs, i18n) | ❌ Not Started | 0% |
@@ -51,15 +51,15 @@
 - [x] Reporter (HTML report generation)
 - [x] System file protection (blocked paths)
 
-## Phase 4: Windows Registry 🚧
+## Phase 4: Windows Registry ✅
 
-- [ ] Registry scanner — read HKLM/HKCU Uninstall keys
-- [ ] Orphan detection — cross-reference with installed apps
-- [ ] Unused key detection
-- [ ] Registry backup/restore (.reg export)
-- [ ] Registry cleaner — remove orphaned entries
-- [ ] CLI `registry` command full implementation
-- [ ] Registry unit tests
+- [x] Registry scanner — read HKLM/HKCU Uninstall keys via `reg.exe`
+- [x] Orphan detection — cross-reference with installed apps from DB
+- [x] Unused key detection — Run keys, BHOs, Services with missing executables
+- [x] Registry backup/restore (.reg file export/import)
+- [x] Registry cleaner — remove orphaned entries with dry-run support
+- [x] CLI `registry scan` / `registry clean` commands fully implemented
+- [x] 11 unit tests (extract_exe_path, parse_reg_line, parse_reg_type, orphan detection, serialization)
 
 ## Phase 5: LLM Integration ❌
 
@@ -108,9 +108,9 @@
 |--------|-------|
 | Crates | 2 (`vulturius-core`, `vulturius-cli`) |
 | Rust source files | 34 |
-| Total lines of code | ~5,069 |
-| Unit tests | 23 passing |
-| TODOs/stubs remaining | ~17 |
+| Total lines of code | ~5,750 |
+| Unit tests | 34 passing (23 + 11 new) |
+| TODOs/stubs remaining | ~8 (LLM + platform-specific app uninstall) |
 | Database tables | 7 (scans, file_entries, file_analysis, cleanup_history, cleanup_journal, app_registry, quarantine) |
 
 ---
@@ -120,5 +120,11 @@
 ### 2026-05-05 — Session 1
 - **Verified** project state: Phases 1-3 complete, 23 tests passing, 6 minor warnings
 - **Identified** remaining TODOs: registry stubs, LLM stubs, platform-specific app uninstall stubs
-- **Created** this progress tracker file
-- **Started** Phase 4 implementation (Windows Registry module)
+- **Created** this progress tracker file (PROGRESS.md)
+- **Implemented** Phase 4 — full Windows Registry module:
+  - RegistryScanner: reads HKLM/HKCU Uninstall keys, Run keys, Services via `reg.exe`
+  - Orphan detection with cross-referencing against known apps from SQLite DB
+  - RegistryCleaner: backup/restore via .reg files, dry-run support
+  - CLI `registry scan` / `registry clean` commands
+  - 11 new unit tests (34 total, all passing)
+- **Committed** as `6eebb15`
