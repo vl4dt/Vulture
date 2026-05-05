@@ -1,0 +1,22 @@
+[package]
+name = "vulturius-cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "CLI for Vulturius - intelligent disk analysis and cleanup"
+
+[dependencies]
+vulturius-core.workspace = true
+
+# Workspace dependencies
+tokio.workspace = true
+clap.workspace = true
+clap_complete.workspace = true
+indicatif.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+humansize.workspace = true

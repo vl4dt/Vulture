@@ -1,0 +1,15 @@
+target/
+*.pdb
+Cargo.lock
+.env
+.env.*
+!.env.example
+.quarantine/
+.vulturius/
+*.log
+dist/
+release/
+*.dmg
+*.msi
+*.exe
+!.cargo/config.toml
