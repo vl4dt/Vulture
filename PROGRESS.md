@@ -1,6 +1,6 @@
 # Vulturius — Development Progress Tracker
 
-> Auto-maintained across sessions. Last updated: 2026-05-05 (Session 1 — Phase 4 complete)
+> Auto-maintained across sessions. Last updated: 2026-05-05 (Session 1 — Phases 4-5 complete)
 
 ---
 
@@ -12,7 +12,7 @@
 | Phase 2 | Core Engine (parallel scanner, classifier, analyzer, scoring, app detection) | ✅ Complete | 100% |
 | Phase 3 | Cleanup Engine (cleaner, quarantine, undo journal, CLI commands) | ✅ Complete | 100% |
 | Phase 4 | Windows Registry (orphan detection, backup/restore, cleaner) | ✅ Complete | 100% |
-| Phase 5 | LLM Integration (OpenAI, Ollama, caching, NL queries) | ❌ Not Started | 0% |
+| Phase 5 | LLM Integration (OpenAI, Ollama, caching, NL queries) | ✅ Complete | 100% |
 | Phase 6 | Tauri GUI (Svelte 5, FUI design, 3D orb, pages) | ❌ Not Started | 0% |
 | Phase 7 | Polish & Release (CI/CD, packaging, docs, i18n) | ❌ Not Started | 0% |
 
@@ -61,16 +61,16 @@
 - [x] CLI `registry scan` / `registry clean` commands fully implemented
 - [x] 11 unit tests (extract_exe_path, parse_reg_line, parse_reg_type, orphan detection, serialization)
 
-## Phase 5: LLM Integration ❌
+## Phase 5: LLM Integration ✅
 
-- [ ] LLM engine abstraction with provider trait
-- [ ] OpenAI provider (reqwest + JSON)
-- [ ] Ollama/local provider
-- [ ] Mock provider for testing
-- [ ] Decision caching (hash-based)
-- [ ] Natural language query → scan config
-- [ ] Cost controls (budget caps, call limits)
-- [ ] LLM unit tests
+- [x] LLM engine abstraction with `LlmProvider` trait
+- [x] OpenAI provider (reqwest + JSON, full API integration)
+- [x] Ollama/local provider (localhost:11434)
+- [x] Mock provider for testing (deterministic responses)
+- [x] Decision caching (hash-based on path+size+modified+category)
+- [x] Natural language query → scan config conversion
+- [x] Cost controls (budget caps, call limits, per-model cost estimation)
+- [x] 8 unit tests (engine creation, budget tracking, cache eviction, mock responses, cost estimation, provider fallback)
 
 ## Phase 6: Tauri GUI ❌
 
@@ -109,8 +109,8 @@
 | Crates | 2 (`vulturius-core`, `vulturius-cli`) |
 | Rust source files | 34 |
 | Total lines of code | ~5,750 |
-| Unit tests | 34 passing (23 + 11 new) |
-| TODOs/stubs remaining | ~8 (LLM + platform-specific app uninstall) |
+| Unit tests | 42 passing (34 + 8 new) |
+| TODOs/stubs remaining | ~8 (platform-specific app uninstall only) |
 | Database tables | 7 (scans, file_entries, file_analysis, cleanup_history, cleanup_journal, app_registry, quarantine) |
 
 ---
@@ -127,4 +127,12 @@
   - RegistryCleaner: backup/restore via .reg files, dry-run support
   - CLI `registry scan` / `registry clean` commands
   - 11 new unit tests (34 total, all passing)
-- **Committed** as `6eebb15`
+  - **Committed** as `6eebb15`
+- **Implemented** Phase 5 — full LLM integration module:
+  - LlmProvider trait with OpenAI, Ollama, and Mock implementations
+  - Decision caching with hash-based file metadata keys
+  - Cost estimation and budget controls per scan
+  - Natural language query to scan config conversion
+  - Batch analysis with cache-aware processing
+  - 8 new unit tests (42 total, all passing)
+  - **Committed** as `ada4133`
