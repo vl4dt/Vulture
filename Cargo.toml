@@ -46,6 +46,9 @@ indicatif = "0.17"
 
 # LLM
 reqwest = { version = "0.12", features = ["json", "stream"] }
+futures = "0.3"
+
+
 
 # Error handling
 thiserror = "2"
@@ -67,3 +70,7 @@ tauri-plugin-notification = "2"
 
 # Workspace-local
 vulturius-core = { path = "crates/vulturius-core" }
+
+# Encryption (API key storage)
+aes-gcm = "0.10"
+rand = "0.8"

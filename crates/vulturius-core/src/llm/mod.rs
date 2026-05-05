@@ -1,8 +1,25 @@
 //! LLM integration for augmented file analysis.
 //!
 //! Provides intelligent analysis of ambiguous files using LLM providers.
-//! Supports OpenAI-compatible APIs, Ollama (local), and mock providers for testing.
-//! Includes decision caching to reduce API costs.
+//! Supports OpenAI, Anthropic, Ollama (local), and mock providers for testing.
+//! Includes decision caching, rate limiting, retry with exponential backoff,
+//! provider fallback chains, streaming responses, and encrypted API key storage.
+
+mod fallback;
+mod key_store;
+mod provider;
+mod rate_limiter;
+mod retry;
+mod streaming;
+
+pub use fallback::FallbackChain;
+pub use key_store::KeyStore;
+pub use provider::{
+    parse_analysis_response, prompts, LlmAnalysisResult, ProviderKind, StreamChunk,
+};
+pub use rate_limiter::{RateLimiter, RateLimitConfig};
+pub use retry::RetryConfig;
+pub use streaming::{AnalysisProgress, StreamingAnalysis, run_streaming};
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -16,345 +33,13 @@ use crate::config::LlmConfig;
 use crate::types::FileEntry;
 use crate::Result;
 
-// ─── LLM Analysis Result ────────────────────────────────────────────────────
-
-/// Result of LLM analysis for a single file.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct LlmAnalysisResult {
-    /// Whether the file is safe to delete according to LLM
-    pub safe_to_delete: bool,
-    /// Confidence score (0.0 - 1.0)
-    pub confidence: f64,
-    /// Human-readable explanation
-    pub reason: String,
-    /// File category determined by LLM
-    pub category: String,
-}
-
-// ─── LLM Provider Trait ─────────────────────────────────────────────────────
-
-/// Trait for LLM providers.
-pub trait LlmProvider: Send + Sync {
-    /// Analyze a single file and return analysis result.
-    fn analyze_file(&self, entry: &FileEntry) -> Result<Option<LlmAnalysisResult>>;
-
-    /// Analyze a batch of files in a single request.
-    fn analyze_batch(&self, entries: &[FileEntry]) -> Result<Vec<LlmAnalysisResult>>;
-
-    /// Convert natural language query to scan configuration JSON.
-    fn query_to_scan_config(&self, query: &str) -> Result<String>;
-
-    /// Get provider name for logging.
-    fn provider_name(&self) -> &str;
-}
-
-// ─── OpenAI Provider ────────────────────────────────────────────────────────
-
-/// OpenAI-compatible API provider.
-pub struct OpenAiProvider {
-    config: LlmConfig,
-    client: reqwest::Client,
-}
-
-impl OpenAiProvider {
-    pub fn new(config: &LlmConfig) -> Self {
-        Self {
-            config: config.clone(),
-            client: reqwest::Client::builder()
-                .timeout(Duration::from_secs(config.timeout_seconds))
-                .build()
-                .unwrap_or_default(),
-        }
-    }
-
-    /// Build the API request body for file analysis.
-    fn build_analyze_prompt(&self, entries: &[&FileEntry]) -> String {
-        let mut prompt = String::from(
-            "You are a disk cleanup assistant. Analyze each file and determine if it is safe to delete.\n\n",
-        );
-
-        for entry in entries {
-            prompt.push_str(&format!(
-                "File: {}\nType: {}\nSize: {}\nLast accessed: {:?}\nLocation: {}\n\n",
-                entry.path.display(),
-                entry.file_type,
-                entry.human_size(),
-                entry.last_accessed,
-                entry.path.parent().map(|p| p.display().to_string()).unwrap_or_default(),
-            ));
-        }
-
-        prompt.push_str(
-            "Respond in JSON array format:\n[\n  {\n    \"safe_to_delete\": boolean,\n    \"confidence\": 0.0-1.0,\n    \"reason\": \"brief explanation\",\n    \"category\": \"temp|cache|log|orphan|unknown\"\n  }\n]",
-        );
-
-        prompt
-    }
-
-    /// Call the OpenAI API.
-    async fn call_api(&self, prompt: &str) -> Result<String> {
-        let api_key = self.config.api_key.clone();
-        if api_key.is_empty() {
-            return Err(crate::VulturiusError::Llm(
-                "No API key configured for OpenAI provider".to_string(),
-            ));
-        }
-
-        let url = "https://api.openai.com/v1/chat/completions";
-
-        let body = serde_json::json!({
-            "model": self.config.model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a disk cleanup assistant. Analyze files and determine if they are safe to delete. Be conservative - only recommend deletion when confident."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": 0.1,
-            "max_tokens": 1000
-        });
-
-        let response = timeout(
-            Duration::from_secs(self.config.timeout_seconds),
-            self.client
-                .post(url)
-                .header("Authorization", format!("Bearer {}", api_key))
-                .header("Content-Type", "application/json")
-                .json(&body)
-                .send(),
-        )
-        .await
-        .map_err(|_| crate::VulturiusError::Timeout("LLM request timed out".to_string()))?
-        .map_err(|e| crate::VulturiusError::Llm(format!("API request failed: {}", e)))?;
-
-        if !response.status().is_success() {
-            let status = response.status();
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(crate::VulturiusError::Llm(format!(
-                "API error {}: {}",
-                status, error_text
-            )));
-        }
-
-        let json: serde_json::Value = response
-            .json()
-            .await
-            .map_err(|e| crate::VulturiusError::Llm(format!("Failed to parse response: {}", e)))?;
-
-        json.get("choices")
-            .and_then(|choices| choices.get(0))
-            .and_then(|choice| choice.get("message"))
-            .and_then(|msg| msg.get("content"))
-            .and_then(|content| content.as_str())
-            .map(|s| s.to_string())
-            .ok_or_else(|| {
-                crate::VulturiusError::Llm("Invalid response format from API".to_string())
-            })
-    }
-}
-
-impl LlmProvider for OpenAiProvider {
-    fn analyze_file(&self, entry: &FileEntry) -> Result<Option<LlmAnalysisResult>> {
-        // This would be called in an async context - for now return None
-        // as the actual implementation requires async execution
-        debug!(
-            "OpenAI: Would analyze file {} (async implementation)",
-            entry.path.display()
-        );
-        Ok(None)
-    }
-
-    fn analyze_batch(&self, entries: &[FileEntry]) -> Result<Vec<LlmAnalysisResult>> {
-        debug!(
-            "OpenAI: Would analyze batch of {} files (async implementation)",
-            entries.len()
-        );
-        Ok(Vec::new())
-    }
-
-    fn query_to_scan_config(&self, query: &str) -> Result<String> {
-        debug!("OpenAI: Would convert query '{}' to scan config", query);
-        Ok(String::new())
-    }
-
-    fn provider_name(&self) -> &str {
-        "openai"
-    }
-}
-
-// ─── Ollama Provider ────────────────────────────────────────────────────────
-
-/// Local Ollama provider for running models locally.
-pub struct OllamaProvider {
-    config: LlmConfig,
-    client: reqwest::Client,
-    base_url: String,
-}
-
-impl OllamaProvider {
-    pub fn new(config: &LlmConfig) -> Self {
-        Self {
-            config: config.clone(),
-            client: reqwest::Client::builder()
-                .timeout(Duration::from_secs(config.timeout_seconds))
-                .build()
-                .unwrap_or_default(),
-            base_url: "http://localhost:11434".to_string(),
-        }
-    }
-
-    /// Call Ollama API.
-    async fn call_ollama(&self, prompt: &str) -> Result<String> {
-        let url = format!("{}/api/chat", self.base_url);
-
-        let body = serde_json::json!({
-            "model": self.config.model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You are a disk cleanup assistant. Analyze files and determine if they are safe to delete."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "stream": false
-        });
-
-        let response = timeout(
-            Duration::from_secs(self.config.timeout_seconds),
-            self.client.post(&url).json(&body).send(),
-        )
-        .await
-        .map_err(|_| crate::VulturiusError::Timeout("Ollama request timed out".to_string()))?
-        .map_err(|e| crate::VulturiusError::Llm(format!("Ollama request failed: {}", e)))?;
-
-        if !response.status().is_success() {
-            return Err(crate::VulturiusError::Llm(format!(
-                "Ollama error: {}",
-                response.status()
-            )));
-        }
-
-        let json: serde_json::Value = response.json().await.map_err(|e| {
-            crate::VulturiusError::Llm(format!("Failed to parse Ollama response: {}", e))
-        })?;
-
-        json.get("message")
-            .and_then(|msg| msg.get("content"))
-            .and_then(|content| content.as_str())
-            .map(|s| s.to_string())
-            .ok_or_else(|| {
-                crate::VulturiusError::Llm("Invalid response format from Ollama".to_string())
-            })
-    }
-}
-
-impl LlmProvider for OllamaProvider {
-    fn analyze_file(&self, entry: &FileEntry) -> Result<Option<LlmAnalysisResult>> {
-        debug!(
-            "Ollama: Would analyze file {} (async implementation)",
-            entry.path.display()
-        );
-        Ok(None)
-    }
-
-    fn analyze_batch(&self, entries: &[FileEntry]) -> Result<Vec<LlmAnalysisResult>> {
-        debug!(
-            "Ollama: Would analyze batch of {} files (async implementation)",
-            entries.len()
-        );
-        Ok(Vec::new())
-    }
-
-    fn query_to_scan_config(&self, query: &str) -> Result<String> {
-        debug!("Ollama: Would convert query '{}' to scan config", query);
-        Ok(String::new())
-    }
-
-    fn provider_name(&self) -> &str {
-        "ollama"
-    }
-}
-
-// ─── Mock Provider (for testing) ────────────────────────────────────────────
-
-/// Mock provider that returns deterministic results for testing.
-pub struct MockProvider {
-    /// Pre-configured responses for testing
-    responses: Vec<LlmAnalysisResult>,
-    /// Current response index
-    current_index: std::sync::atomic::AtomicUsize,
-}
-
-impl MockProvider {
-    pub fn new() -> Self {
-        Self {
-            responses: Vec::new(),
-            current_index: std::sync::atomic::AtomicUsize::new(0),
-        }
-    }
-
-    /// Set mock responses for testing
-    pub fn with_responses(mut self, responses: Vec<LlmAnalysisResult>) -> Self {
-        self.responses = responses;
-        self
-    }
-
-    /// Get next mock response
-    fn next_response(&self) -> Option<LlmAnalysisResult> {
-        let idx = self.current_index.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        self.responses.get(idx).cloned()
-    }
-}
-
-impl Default for MockProvider {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl LlmProvider for MockProvider {
-    fn analyze_file(&self, _entry: &FileEntry) -> Result<Option<LlmAnalysisResult>> {
-        Ok(self.next_response())
-    }
-
-    fn analyze_batch(&self, entries: &[FileEntry]) -> Result<Vec<LlmAnalysisResult>> {
-        let mut results = Vec::new();
-        for _ in 0..entries.len() {
-            if let Some(result) = self.next_response() {
-                results.push(result);
-            }
-        }
-        Ok(results)
-    }
-
-    fn query_to_scan_config(&self, _query: &str) -> Result<String> {
-        Ok(serde_json::json!({
-            "path": "/home/user",
-            "scan_type": "full",
-            "filters": ["age > 30d", "size > 100MB"]
-        })
-        .to_string())
-    }
-
-    fn provider_name(&self) -> &str {
-        "mock"
-    }
-}
-
 // ─── Decision Cache ─────────────────────────────────────────────────────────
 
 /// Cache for LLM decisions to avoid redundant API calls.
 pub struct DecisionCache {
-    /// File metadata hash -> analysis result
+    /// File metadata hash -> analysis result.
     entries: HashMap<String, LlmAnalysisResult>,
-    /// Maximum cache size
+    /// Maximum cache size.
     max_size: usize,
 }
 
@@ -368,12 +53,13 @@ impl DecisionCache {
 
     /// Generate a cache key from file metadata.
     fn cache_key(entry: &FileEntry) -> String {
-        // Hash based on path, size, last_modified, and category
         format!(
             "{}:{}:{}:{}",
             entry.path.display(),
             entry.size,
-            entry.last_modified.duration_since(std::time::UNIX_EPOCH)
+            entry
+                .last_modified
+                .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
                 .unwrap_or(0),
             entry.category,
@@ -388,7 +74,6 @@ impl DecisionCache {
     /// Store a result in the cache.
     pub fn put(&mut self, entry: &FileEntry, result: LlmAnalysisResult) {
         if self.entries.len() >= self.max_size {
-            // Simple LRU: remove random entry when full
             if let Some(key) = self.entries.keys().next().cloned() {
                 self.entries.remove(&key);
             }
@@ -409,76 +94,150 @@ impl DecisionCache {
 
 // ─── LLM Engine ─────────────────────────────────────────────────────────────
 
-/// Main LLM engine that coordinates providers, caching, and cost controls.
+/// Main LLM engine that coordinates providers, caching, rate limiting, and cost controls.
 pub struct LlmEngine {
+    /// Primary config.
     config: LlmConfig,
-    provider: Box<dyn LlmProvider>,
+    /// Fallback chain of providers.
+    chain: FallbackChain,
+    /// Decision cache.
     cache: Option<DecisionCache>,
+    /// Rate limiter.
+    rate_limiter: RateLimiter,
+    /// Calls made in current session.
     calls_made: usize,
+    /// Total estimated cost.
     total_cost_estimate: f64,
+    /// API key store for encrypted storage.
+    key_store: Option<KeyStore>,
 }
 
 impl LlmEngine {
     /// Create a new LLM engine with the configured provider.
     pub fn new(config: LlmConfig) -> Self {
-        let provider: Box<dyn LlmProvider> = match config.provider.as_str() {
-            "openai" => Box::new(OpenAiProvider::new(&config)),
-            "ollama" => Box::new(OllamaProvider::new(&config)),
-            "mock" => Box::new(MockProvider::new()),
-            _ => {
-                warn!(
-                    "Unknown LLM provider '{}', defaulting to mock",
-                    config.provider
-                );
-                Box::new(MockProvider::new())
-            }
-        };
+        let rate_limiter = RateLimiter::new();
+
+        // Set provider-specific rate limits
+        match config.provider.as_str() {
+            "openai" => rate_limiter.set_config_sync("openai", RateLimitConfig::openai_default()),
+            "anthropic" => rate_limiter.set_config_sync("anthropic", RateLimitConfig::anthropic_default()),
+            _ => rate_limiter.set_config_sync(&config.provider, RateLimitConfig::unlimited()),
+        }
+
+        let chain = FallbackChain::single(&config, rate_limiter.clone());
 
         let cache = if config.cache_decisions {
-            Some(DecisionCache::new(10000)) // Max 10k cached decisions
+            Some(DecisionCache::new(10_000))
         } else {
             None
         };
 
         Self {
             config,
-            provider,
+            chain,
             cache,
+            rate_limiter,
             calls_made: 0,
             total_cost_estimate: 0.0,
+            key_store: None,
+        }
+    }
+
+    /// Create with a fallback chain (multiple providers).
+    pub fn with_fallback(configs: Vec<LlmConfig>) -> Self {
+        let primary = configs.first().cloned().unwrap_or_else(|| LlmConfig {
+            enabled: false,
+            provider: "openai".to_string(),
+            model: "gpt-4o-mini".to_string(),
+            api_key: String::new(),
+            max_calls_per_scan: 50,
+            timeout_seconds: 30,
+            cache_decisions: true,
+        });
+        let rate_limiter = RateLimiter::new();
+
+        // Configure rate limits for all providers
+        for cfg in &configs {
+            match cfg.provider.as_str() {
+                "openai" => rate_limiter.set_config_sync("openai", RateLimitConfig::openai_default()),
+                "anthropic" => rate_limiter.set_config_sync("anthropic", RateLimitConfig::anthropic_default()),
+                _ => rate_limiter.set_config_sync(&cfg.provider, RateLimitConfig::unlimited()),
+            }
+        }
+
+        let chain = FallbackChain::from_configs(&configs, rate_limiter.clone());
+        let cache = if primary.cache_decisions {
+            Some(DecisionCache::new(10_000))
+        } else {
+            None
+        };
+
+        Self {
+            config: primary,
+            chain,
+            cache,
+            rate_limiter,
+            calls_made: 0,
+            total_cost_estimate: 0.0,
+            key_store: None,
+        }
+    }
+
+    /// Set the API key store for encrypted key management.
+    pub fn with_key_store(mut self, store_path: PathBuf) -> Self {
+        self.key_store = Some(KeyStore::new(store_path));
+        self
+    }
+
+    /// Store an API key encrypted.
+    pub fn store_api_key(&self, name: &str, value: &str) -> Result<()> {
+        if let Some(ref store) = self.key_store {
+            store.store_key(name, value)?;
+        }
+        Ok(())
+    }
+
+    /// Retrieve an API key from encrypted storage.
+    pub fn get_api_key(&self, name: &str) -> Result<Option<String>> {
+        if let Some(ref store) = self.key_store {
+            store.get_key(name)
+        } else {
+            Ok(None)
         }
     }
 
     /// Analyze a single file using the LLM.
     pub async fn analyze_file(&mut self, entry: &FileEntry) -> Result<Option<LlmAnalysisResult>> {
-        // Check if LLM is enabled
         if !self.config.enabled {
             return Ok(None);
         }
 
-        // Check call budget
         if !self.has_budget() {
-            warn!("LLM call budget exceeded ({})", self.config.max_calls_per_scan);
+            warn!(
+                "LLM call budget exceeded ({})",
+                self.config.max_calls_per_scan
+            );
             return Ok(None);
         }
 
         // Check cache
         if let Some(ref cache) = self.cache {
             if let Some(result) = cache.get(entry) {
-                debug!("LLM cache hit for {}", entry.path.display());
+                debug!(
+                    "LLM cache hit for {}",
+                    entry.path.display()
+                );
                 return Ok(Some(result));
             }
         }
 
-        // Call provider
-        let result = self.provider.analyze_file(entry)?;
+        // Call provider chain
+        let result = self.chain.analyze_file(entry).await?;
 
         if let Some(ref result) = result {
-            // Update call count
             self.calls_made += 1;
             self.total_cost_estimate += self.estimate_call_cost();
 
-            // Cache the result
             if let Some(ref mut cache) = self.cache {
                 cache.put(entry, result.clone());
             }
@@ -503,27 +262,21 @@ impl LlmEngine {
             return Ok(Vec::new());
         }
 
-        // Check if we have budget for the batch
         if entries.is_empty() || !self.has_budget() {
             return Ok(Vec::new());
         }
-
-        // Limit batch size to remaining budget
-        let batch_size = std::cmp::min(
-            entries.len(),
-            self.config.max_calls_per_scan - self.calls_made,
-        );
-
-        let batch_entries = &entries[..batch_size];
 
         // Check cache for each entry first
         let mut results = Vec::new();
         let mut uncached_entries = Vec::new();
 
-        for entry in batch_entries {
+        for entry in entries {
             if let Some(ref cache) = self.cache {
                 if let Some(result) = cache.get(entry) {
-                    debug!("LLM cache hit for {}", entry.path.display());
+                    debug!(
+                        "LLM cache hit for {}",
+                        entry.path.display()
+                    );
                     results.push(result);
                     continue;
                 }
@@ -533,13 +286,12 @@ impl LlmEngine {
 
         // Analyze uncached entries
         if !uncached_entries.is_empty() {
-            let provider_results = self.provider.analyze_batch(&uncached_entries)?;
+            let provider_results = self.chain.analyze_batch(&uncached_entries).await?;
 
             for (i, result) in provider_results.iter().enumerate() {
                 if i < uncached_entries.len() {
                     let entry = &uncached_entries[i];
 
-                    // Cache the result
                     if let Some(ref mut cache) = self.cache {
                         cache.put(entry, result.clone());
                     }
@@ -577,7 +329,7 @@ impl LlmEngine {
             ));
         }
 
-        let config = self.provider.query_to_scan_config(query)?;
+        let config = self.chain.query_to_scan_config(query).await?;
         self.calls_made += 1;
         self.total_cost_estimate += self.estimate_call_cost();
 
@@ -591,12 +343,14 @@ impl LlmEngine {
 
     /// Estimate the cost of a single LLM call.
     fn estimate_call_cost(&self) -> f64 {
-        // Rough estimates per call
         match self.config.model.as_str() {
-            m if m.contains("gpt-4o-mini") => 0.0001, // ~$0.15/1M tokens
-            m if m.contains("gpt-4o") => 0.001,       // ~$1.50/1M tokens
-            m if m.contains("gpt-4") => 0.003,        // ~$3.00/1M tokens
-            m if m.contains("gpt-3.5") => 0.00005,    // ~$0.05/1M tokens
+            m if m.contains("gpt-4o-mini") => 0.0001,
+            m if m.contains("gpt-4o") => 0.001,
+            m if m.contains("gpt-4") => 0.003,
+            m if m.contains("gpt-3.5") => 0.00005,
+            m if m.contains("claude-3-opus") => 0.015,
+            m if m.contains("claude-3-sonnet") => 0.003,
+            m if m.contains("claude-3-haiku") => 0.00025,
             _ => 0.0, // Local models are free
         }
     }
@@ -617,13 +371,42 @@ impl LlmEngine {
     }
 
     /// Get provider name.
-    pub fn provider_name(&self) -> &str {
-        self.provider.provider_name()
+    pub async fn active_provider_name(&self) -> String {
+        self.chain.active_provider_name().await
     }
 
     /// Get cache size.
     pub fn cache_size(&self) -> usize {
         self.cache.as_ref().map(|c| c.len()).unwrap_or(0)
+    }
+
+    /// Get number of providers in fallback chain.
+    pub fn provider_count(&self) -> usize {
+        self.chain.len()
+    }
+
+    /// Get provider kinds in the chain.
+    pub fn provider_kinds(&self) -> Vec<ProviderKind> {
+        self.chain.provider_kinds()
+    }
+}
+
+/// Default LlmConfig implementation helper.
+trait DefaultLlmConfig {
+    fn default_config() -> LlmConfig;
+}
+
+impl DefaultLlmConfig for LlmConfig {
+    fn default_config() -> LlmConfig {
+        LlmConfig {
+            enabled: false,
+            provider: "openai".to_string(),
+            model: "gpt-4o-mini".to_string(),
+            api_key: String::new(),
+            max_calls_per_scan: 50,
+            timeout_seconds: 30,
+            cache_decisions: true,
+        }
     }
 }
 
@@ -633,6 +416,7 @@ impl LlmEngine {
 mod tests {
     use super::*;
     use std::time::{Duration, SystemTime};
+    use tempfile::TempDir;
 
     fn create_test_entry(path: &str, category: crate::types::FileCategory) -> FileEntry {
         FileEntry {
@@ -664,28 +448,26 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_llm_engine_creation() {
-        let config = create_test_config("mock", true, true);
+    #[tokio::test]
+    async fn test_llm_engine_creation() {
+        let config = create_test_config("openai", true, true);
         let engine = LlmEngine::new(config);
         assert_eq!(engine.calls_made(), 0);
         assert!(engine.has_budget());
-        assert_eq!(engine.provider_name(), "mock");
+        assert_eq!(engine.provider_count(), 1);
     }
 
-    #[test]
-    fn test_llm_engine_disabled() {
-        let config = create_test_config("mock", false, true);
+    #[tokio::test]
+    async fn test_llm_engine_disabled() {
+        let config = create_test_config("openai", false, true);
         let engine = LlmEngine::new(config);
         assert!(!engine.has_budget());
     }
 
-    #[test]
-    fn test_llm_budget_tracking() {
-        let config = create_test_config("mock", true, false);
-        let mut engine = LlmEngine::new(config);
-
-        // Mock provider returns None by default, but calls are tracked
+    #[tokio::test]
+    async fn test_llm_budget_tracking() {
+        let config = create_test_config("openai", true, false);
+        let engine = LlmEngine::new(config);
         assert_eq!(engine.calls_made(), 0);
         assert!(engine.has_budget());
     }
@@ -726,49 +508,61 @@ mod tests {
         cache.put(&entry2, result.clone());
         cache.put(&entry3, result);
 
-        // Cache should have exactly 2 entries (max_size)
         assert_eq!(cache.len(), 2);
     }
 
-    #[test]
-    fn test_mock_provider_responses() {
-        let responses = vec![
-            LlmAnalysisResult {
-                safe_to_delete: true,
-                confidence: 0.9,
-                reason: "Safe temp file".to_string(),
-                category: "temp".to_string(),
-            },
-            LlmAnalysisResult {
-                safe_to_delete: false,
-                confidence: 0.8,
-                reason: "Important document".to_string(),
-                category: "document".to_string(),
-            },
-        ];
-
-        let provider = MockProvider::new().with_responses(responses);
-        let entry = create_test_entry("/tmp/test.txt", crate::types::FileCategory::Temp);
-
-        let result1 = provider.analyze_file(&entry).unwrap().unwrap();
-        let result2 = provider.analyze_file(&entry).unwrap().unwrap();
-
-        assert!(result1.safe_to_delete);
-        assert!(!result2.safe_to_delete);
-    }
-
-    #[test]
-    fn test_cost_estimation() {
+    #[tokio::test]
+    async fn test_cost_estimation_gpt4o_mini() {
         let config = create_test_config("openai", true, false);
         let engine = LlmEngine::new(config);
-        assert!(engine.estimated_cost() == 0.0);
+        assert_eq!(engine.estimated_cost(), 0.0);
     }
 
-    #[test]
-    fn test_unknown_provider_fallback() {
-        let mut config = create_test_config("unknown_provider", true, false);
-        config.provider = "unknown_provider".to_string();
+    #[tokio::test]
+    async fn test_cost_estimation_claude() {
+        let mut config = create_test_config("anthropic", true, false);
+        config.model = "claude-3-haiku-20240307".to_string();
         let engine = LlmEngine::new(config);
-        assert_eq!(engine.provider_name(), "mock"); // Should fallback to mock
+        // Cost estimation is per-call, starts at 0
+        assert_eq!(engine.estimated_cost(), 0.0);
+    }
+
+    #[tokio::test]
+    async fn test_fallback_chain_creation() {
+        let configs = vec![
+            create_test_config("openai", true, true),
+            create_test_config("ollama", true, true),
+        ];
+        let engine = LlmEngine::with_fallback(configs);
+        assert_eq!(engine.provider_count(), 2);
+    }
+
+    #[tokio::test]
+    async fn test_key_store_integration() {
+        let temp_dir = TempDir::new().unwrap();
+        let key_path = temp_dir.path().join("keys.json");
+
+        let config = create_test_config("openai", true, true);
+        let engine = LlmEngine::new(config).with_key_store(key_path.clone());
+
+        engine.store_api_key("openai", "sk-test-123").unwrap();
+        let key = engine.get_api_key("openai").unwrap().unwrap();
+        assert_eq!(key, "sk-test-123");
+    }
+
+    #[tokio::test]
+    async fn test_provider_kinds() {
+        let config = create_test_config("openai", true, true);
+        let engine = LlmEngine::new(config);
+        let kinds = engine.provider_kinds();
+        assert_eq!(kinds, vec![ProviderKind::OpenAi]);
+    }
+
+    #[tokio::test]
+    async fn test_active_provider_name() {
+        let config = create_test_config("openai", true, true);
+        let engine = LlmEngine::new(config);
+        let name = engine.active_provider_name().await;
+        assert!(!name.is_empty());
     }
 }

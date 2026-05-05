@@ -1,241 +1,121 @@
-use crate::config::AppConfig;
-use crate::db::Database;
-use crate::types::*;
-use crate::VulturiusError;
+//! Reporting engine for scan/analysis/cleanup data.
+//!
+//! Generates text, HTML, and JSON reports with trend analysis.
 
-use chrono::Utc;
+mod html_report;
+mod json_report;
+mod text_report;
+mod trend;
+
+pub use html_report::HtmlReportBuilder;
+pub use json_report::JsonReport;
+pub use text_report::TextReportBuilder;
+pub use trend::{TrendAnalyzer, TrendSummary};
+
+use crate::db::Database;
+use crate::VulturiusError;
 use std::path::PathBuf;
 use tokio::fs;
 use tracing::info;
 
+/// Report format.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReportFormat {
+    Text,
+    Html,
+    Json,
+}
+
+impl ReportFormat {
+    pub fn extension(&self) -> &str {
+        match self {
+            ReportFormat::Text => "txt",
+            ReportFormat::Html => "html",
+            ReportFormat::Json => "json",
+        }
+    }
+}
+
+/// Report configuration.
+#[derive(Debug, Clone)]
+pub struct ReportConfig {
+    /// Include scan details.
+    pub include_scan: bool,
+    /// Include analysis details.
+    pub include_analysis: bool,
+    /// Include cleanup history.
+    pub include_cleanup: bool,
+    /// Include app registry.
+    pub include_apps: bool,
+    /// Include quarantine status.
+    pub include_quarantine: bool,
+    /// Include trend analysis.
+    pub include_trends: bool,
+    /// Maximum entries per section.
+    pub max_entries: usize,
+}
+
+impl Default for ReportConfig {
+    fn default() -> Self {
+        Self {
+            include_scan: true,
+            include_analysis: true,
+            include_cleanup: true,
+            include_apps: true,
+            include_quarantine: true,
+            include_trends: true,
+            max_entries: 100,
+        }
+    }
+}
+
 /// Generates reports from scan/analysis/cleanup data.
 pub struct Reporter {
     db: Database,
+    config: ReportConfig,
 }
 
 impl Reporter {
+    /// Create a new reporter with default config.
     pub fn new(db: Database) -> Self {
-        Self { db }
+        Self {
+            db,
+            config: ReportConfig::default(),
+        }
+    }
+
+    /// Create with custom config.
+    pub fn with_config(db: Database, config: ReportConfig) -> Self {
+        Self { db, config }
     }
 
     /// Generate a text report.
-    pub async fn generate_text_report(&self) -> Result<String, VulturiusError> {
-        let mut report = String::new();
-        report.push_str("╔══════════════════════════════════════════════════════════╗\n");
-        report.push_str("║              VULTURIUS — DISK ANALYSIS REPORT            ║\n");
-        report.push_str("╚══════════════════════════════════════════════════════════╝\n\n");
-
-        // Latest scan info
-        if let Some(scan_id) = self.db.get_latest_scan_id().await? {
-            if let Some(scan) = self.db.get_scan(&scan_id).await? {
-                report.push_str(&format!("Scan ID        : {}\n", scan.scan_id));
-                report.push_str(&format!("Started        : {}\n", scan.started_at.format("%Y-%m-%d %H:%M:%S")));
-                report.push_str(&format!("Completed      : {}\n", scan.completed_at.format("%Y-%m-%d %H:%M:%S")));
-                report.push_str(&format!("Duration       : {:?}\n", scan.completed_at.signed_duration_since(scan.started_at)));
-                report.push_str(&format!("Files scanned  : {}\n", scan.total_files));
-                report.push_str(&format!("Data scanned   : {}\n", format_size(scan.total_size)));
-                report.push_str(&format!("Errors         : {}\n\n", scan.errors.len()));
-            }
-        }
-
-        // App registry summary
-        let apps = self.db.get_all_apps().await?;
-        let unused = apps.iter().filter(|a| matches!(a.recommendation, AppRecommendation::Unused)).count();
-        let rarely = apps.iter().filter(|a| matches!(a.recommendation, AppRecommendation::RarelyUsed)).count();
-        let active = apps.iter().filter(|a| matches!(a.recommendation, AppRecommendation::Active)).count();
-
-        report.push_str("── Application Registry ──────────────────────────────────\n");
-        report.push_str(&format!("  Total apps     : {}\n", apps.len()));
-        report.push_str(&format!("  Unused         : {}\n", unused));
-        report.push_str(&format!("  Rarely used    : {}\n", rarely));
-        report.push_str(&format!("  Active         : {}\n\n", active));
-
-        // Cleanup history
-        let history = self.db.get_cleanup_history(10).await?;
-        if !history.is_empty() {
-            report.push_str("── Recent Cleanup History ────────────────────────────────\n");
-            for entry in &history {
-                report.push_str(&format!(
-                    "  {} — {} items, freed {}\n",
-                    entry.executed_at.format("%Y-%m-%d %H:%M"),
-                    entry.items_processed,
-                    format_size(entry.space_freed),
-                ));
-            }
-            report.push('\n');
-        }
-
-        // Quarantine status
-        let quarantine = self.db.get_quarantine_entries().await?;
-        if !quarantine.is_empty() {
-            report.push_str("── Quarantine ────────────────────────────────────────────\n");
-            report.push_str(&format!("  Entries        : {}\n", quarantine.len()));
-            let total_q_size: u64 = quarantine.iter().map(|e| e.size).sum();
-            report.push_str(&format!("  Total size     : {}\n", format_size(total_q_size)));
-            report.push('\n');
-        }
-
-        report.push_str("── Generated: ────────────────────────────────────────────\n");
-        report.push_str(&format!("  {}\n", Utc::now().format("%Y-%m-%d %H:%M:%S UTC")));
-
-        Ok(report)
+    pub async fn generate_text(&self) -> Result<String, VulturiusError> {
+        TextReportBuilder::new(&self.db, &self.config).build().await
     }
 
     /// Generate an HTML report.
-    pub async fn generate_html_report(&self) -> Result<String, VulturiusError> {
-        let text_report = self.generate_text_report().await?;
-        let apps = self.db.get_all_apps().await?;
-        let unused = apps.iter().filter(|a| matches!(a.recommendation, AppRecommendation::Unused)).count();
-        let rarely = apps.iter().filter(|a| matches!(a.recommendation, AppRecommendation::RarelyUsed)).count();
-        let active = apps.iter().filter(|a| matches!(a.recommendation, AppRecommendation::Active)).count();
+    pub async fn generate_html(&self) -> Result<String, VulturiusError> {
+        HtmlReportBuilder::new(&self.db, &self.config).build().await
+    }
 
-        let html = format!(
-            r#"<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vulturius — Disk Analysis Report</title>
-    <style>
-        :root {{
-            --bg: #000008;
-            --panel: rgba(10, 15, 30, 0.85);
-            --cyan: #00f0ff;
-            --teal: #00d4aa;
-            --amber: #ffb800;
-            --crimson: #ff2d55;
-            --text: #e9e9ff;
-            --dim: #666688;
-        }}
-        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        body {{
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'JetBrains Mono', 'IBM Plex Mono', 'Consolas', monospace;
-            padding: 2rem;
-            min-height: 100vh;
-        }}
-        .container {{
-            max-width: 900px;
-            margin: 0 auto;
-        }}
-        h1 {{
-            color: var(--cyan);
-            font-size: 1.5rem;
-            letter-spacing: 0.3em;
-            text-transform: uppercase;
-            margin-bottom: 0.5rem;
-            text-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
-        }}
-        .subtitle {{
-            color: var(--dim);
-            font-size: 0.75rem;
-            letter-spacing: 0.2em;
-            margin-bottom: 2rem;
-        }}
-        .panel {{
-            background: var(--panel);
-            border: 1px solid rgba(0, 240, 255, 0.1);
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1.5rem;
-            backdrop-filter: blur(10px);
-        }}
-        .panel h2 {{
-            color: var(--teal);
-            font-size: 0.85rem;
-            letter-spacing: 0.15em;
-            text-transform: uppercase;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 1px solid rgba(0, 212, 170, 0.2);
-        }}
-        .metric {{
-            display: flex;
-            justify-content: space-between;
-            padding: 0.4rem 0;
-        }}
-        .metric-label {{ color: var(--dim); }}
-        .metric-value {{ color: var(--text); }}
-        .metric-value.safe {{ color: var(--teal); }}
-        .metric-value.warn {{ color: var(--amber); }}
-        .metric-value.danger {{ color: var(--crimson); }}
-        pre {{
-            background: rgba(0, 0, 0, 0.5);
-            padding: 1rem;
-            border-radius: 4px;
-            overflow-x: auto;
-            font-size: 0.75rem;
-            line-height: 1.6;
-            color: var(--dim);
-        }}
-        .footer {{
-            text-align: center;
-            color: var(--dim);
-            font-size: 0.65rem;
-            margin-top: 2rem;
-            letter-spacing: 0.1em;
-        }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Vulturius</h1>
-        <div class="subtitle">DISK ANALYSIS REPORT</div>
+    /// Generate a JSON report.
+    pub async fn generate_json(&self) -> Result<String, VulturiusError> {
+        let report = JsonReport::from_db(&self.db, &self.config).await?;
+        Ok(serde_json::to_string_pretty(&report)?)
+    }
 
-        <div class="panel">
-            <h2>Scan Summary</h2>
-            {scan_metrics}
-        </div>
-
-        <div class="panel">
-            <h2>Application Registry</h2>
-            <div class="metric">
-                <span class="metric-label">Total Apps</span>
-                <span class="metric-value">{total_apps}</span>
-            </div>
-            <div class="metric">
-                <span class="metric-label">Unused</span>
-                <span class="metric-value danger">{unused_apps}</span>
-            </div>
-            <div class="metric">
-                <span class="metric-label">Rarely Used</span>
-                <span class="metric-value warn">{rarely_apps}</span>
-            </div>
-            <div class="metric">
-                <span class="metric-label">Active</span>
-                <span class="metric-value safe">{active_apps}</span>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h2>Full Report</h2>
-            <pre>{report_text}</pre>
-        </div>
-
-        <div class="footer">
-            VULTURIUS — GENERATED {timestamp}
-        </div>
-    </div>
-</body>
-</html>"#,
-            scan_metrics = self.build_scan_metrics_html(),
-            total_apps = apps.len(),
-            unused_apps = unused,
-            rarely_apps = rarely,
-            active_apps = active,
-            report_text = html_escape(&text_report),
-            timestamp = Utc::now().format("%Y-%m-%d %H:%M:%S UTC"),
-        );
-
-        Ok(html)
+    /// Generate trend analysis.
+    pub async fn analyze_trends(&self) -> Result<TrendSummary, VulturiusError> {
+        TrendAnalyzer::new(&self.db).analyze().await
     }
 
     /// Save a report to disk.
     pub async fn save_report(&self, format: ReportFormat, path: PathBuf) -> Result<(), VulturiusError> {
         let content = match format {
-            ReportFormat::Text => self.generate_text_report().await?,
-            ReportFormat::Html => self.generate_html_report().await?,
+            ReportFormat::Text => self.generate_text().await?,
+            ReportFormat::Html => self.generate_html().await?,
+            ReportFormat::Json => self.generate_json().await?,
         };
 
         fs::write(&path, &content).await?;
@@ -243,46 +123,69 @@ impl Reporter {
         Ok(())
     }
 
-    fn build_scan_metrics_html(&self) -> String {
-        // This is a simplified version; in production, fetch from DB
-        String::from(
-            r#"<div class="metric">
-                <span class="metric-label">Status</span>
-                <span class="metric-value safe">Complete</span>
-            </div>
-            <div class="metric">
-                <span class="metric-label">Files Scanned</span>
-                <span class="metric-value">See full report</span>
-            </div>"#,
-        )
+    /// Generate all report formats and save to directory.
+    pub async fn save_all_reports(&self, output_dir: PathBuf) -> Result<Vec<PathBuf>, VulturiusError> {
+        fs::create_dir_all(&output_dir).await?;
+        let mut saved = Vec::new();
+
+        for format in &[ReportFormat::Text, ReportFormat::Html, ReportFormat::Json] {
+            let path = output_dir.join(format!("vulturius_report.{0}", format.extension()));
+            self.save_report(format.clone(), path.clone()).await?;
+            saved.push(path);
+        }
+
+        Ok(saved)
     }
 }
 
-/// Report format enum.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ReportFormat {
-    Text,
-    Html,
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::types::*;
 
-fn format_size(bytes: u64) -> String {
-    if bytes >= 1_000_000_000_000 {
-        format!("{:.2} TB", bytes as f64 / 1_000_000_000_000.0)
-    } else if bytes >= 1_000_000_000 {
-        format!("{:.2} GB", bytes as f64 / 1_000_000_000.0)
-    } else if bytes >= 1_000_000 {
-        format!("{:.2} MB", bytes as f64 / 1_000_000.0)
-    } else if bytes >= 1_000 {
-        format!("{:.2} KB", bytes as f64 / 1_000.0)
-    } else {
-        format!("{} B", bytes)
+    #[test]
+    fn test_report_format_extension() {
+        assert_eq!(ReportFormat::Text.extension(), "txt");
+        assert_eq!(ReportFormat::Html.extension(), "html");
+        assert_eq!(ReportFormat::Json.extension(), "json");
     }
-}
 
-fn html_escape(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&#x27;")
+    #[test]
+    fn test_report_config_default() {
+        let config = ReportConfig::default();
+        assert!(config.include_scan);
+        assert!(config.include_analysis);
+        assert!(config.include_cleanup);
+        assert!(config.include_apps);
+        assert!(config.include_quarantine);
+        assert!(config.include_trends);
+        assert_eq!(config.max_entries, 100);
+    }
+
+    #[test]
+    fn test_format_size() {
+        use text_report::format_size;
+        assert_eq!(format_size(500), "500 B");
+        assert_eq!(format_size(1500), "1.50 KB");
+        assert_eq!(format_size(1_500_000), "1.50 MB");
+        assert_eq!(format_size(1_500_000_000), "1.50 GB");
+        assert_eq!(format_size(1_500_000_000_000), "1.50 TB");
+    }
+
+    #[test]
+    fn test_json_report_empty() {
+        let report = JsonReport {
+            title: "Test Report".to_string(),
+            generated_at: chrono::Utc::now().to_rfc3339(),
+            scan_summary: None,
+            app_summary: None,
+            cleanup_history: Vec::new(),
+            quarantine: None,
+            trends: None,
+        };
+        let json = serde_json::to_string(&report).unwrap();
+        assert!(json.contains("Test Report"));
+        // Empty fields are skipped via skip_serializing_if
+        assert!(!json.contains("cleanup_history"));
+    }
 }
