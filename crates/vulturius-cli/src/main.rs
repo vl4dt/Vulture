@@ -178,8 +178,12 @@ async fn main() -> anyhow::Result<()> {
             }
         },
         Command::Registry { command } => match command {
-            RegistryCommand::Scan => commands::registry::handle(&config).await,
-            RegistryCommand::Clean => commands::registry::handle(&config).await,
+            RegistryCommand::Scan => {
+                commands::registry::handle(&config, commands::registry::RegistrySubCommand::Scan).await
+            }
+            RegistryCommand::Clean => {
+                commands::registry::handle(&config, commands::registry::RegistrySubCommand::Clean { dry_run: cli.dry_run }).await
+            }
         },
         Command::Quarantine { command } => {
             let qc = match command {

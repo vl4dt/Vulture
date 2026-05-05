@@ -20,3 +20,4 @@ pub use analyzer::*;
 pub use cleaner::*;
 pub use platform::*;
 pub use reporter::*;
+pub use registry::*;
