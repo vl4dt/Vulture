@@ -18,7 +18,7 @@
 
 <div class="space-y-6 animate-fade-in">
   <!-- General Settings -->
-  <GlassPanel class="p-6">
+  <GlassPanel panelClass="p-6">
     <h3 class="text-xs font-mono text-fui-white/40 mb-4 tracking-widest">GENERAL</h3>
 
     <div class="space-y-4">
@@ -40,7 +40,7 @@
   </GlassPanel>
 
   <!-- Scan Settings -->
-  <GlassPanel class="p-6">
+  <GlassPanel panelClass="p-6">
     <h3 class="text-xs font-mono text-fui-white/40 mb-4 tracking-widest">SCAN</h3>
 
     <div class="space-y-4">
@@ -50,17 +50,17 @@
       </div>
 
       <label class="flex items-center gap-3 cursor-pointer">
-        <input type="checkbox" class="sr-only peer" {checked: config?.scan?.scan_hidden} />
+        <input type="checkbox" class="sr-only peer" checked={config?.scan?.scan_hidden} />
         <div class="w-10 h-5 bg-white/10 rounded-full peer-checked:bg-fui-cyan/30 relative transition-colors">
-          <div class="w-3 h-3 bg-fui-white/60 rounded-full absolute top-1 left-1 peer-checked:left-6 transition-all" />
+          <div class="w-3 h-3 bg-fui-white/60 rounded-full absolute top-1 left-1 peer-checked:left-6 transition-all"></div>
         </div>
         <span class="text-sm font-mono text-fui-white/60">SCAN HIDDEN FILES</span>
       </label>
 
       <label class="flex items-center gap-3 cursor-pointer">
-        <input type="checkbox" class="sr-only peer" {checked: config?.scan?.scan_system} />
+        <input type="checkbox" class="sr-only peer" checked={config?.scan?.scan_system} />
         <div class="w-10 h-5 bg-white/10 rounded-full peer-checked:bg-fui-cyan/30 relative transition-colors">
-          <div class="w-3 h-3 bg-fui-white/60 rounded-full absolute top-1 left-1 peer-checked:left-6 transition-all" />
+          <div class="w-3 h-3 bg-fui-white/60 rounded-full absolute top-1 left-1 peer-checked:left-6 transition-all"></div>
         </div>
         <span class="text-sm font-mono text-fui-white/60">SCAN SYSTEM DIRECTORIES</span>
       </label>
@@ -68,7 +68,7 @@
   </GlassPanel>
 
   <!-- Analysis Settings -->
-  <GlassPanel class="p-6">
+  <GlassPanel panelClass="p-6">
     <h3 class="text-xs font-mono text-fui-white/40 mb-4 tracking-widest">ANALYSIS</h3>
 
     <div class="space-y-4">
@@ -77,10 +77,7 @@
         <div class="flex gap-2">
           {#each riskLevels as level}
             <button
-              class="px-3 py-1 rounded text-xs font-mono transition-all fui-hover"
-              class:bg-fui-cyan/20={$riskTolerance === level}
-              class:text-fui-cyan={$riskTolerance === level}
-              class:text-fui-white/40={$riskTolerance !== level}
+              class={`px-3 py-1 rounded text-xs font-mono transition-all fui-hover ${$riskTolerance === level ? 'bg-fui-cyan/20 text-fui-cyan' : 'text-fui-white/40'}`}
               onclick={() => riskTolerance.set(level)}
             >
               {level.toUpperCase()}
@@ -97,14 +94,14 @@
   </GlassPanel>
 
   <!-- LLM Settings -->
-  <GlassPanel class="p-6">
+  <GlassPanel panelClass="p-6">
     <h3 class="text-xs font-mono text-fui-white/40 mb-4 tracking-widest">LLM (OPTIONAL)</h3>
 
     <div class="space-y-4">
       <label class="flex items-center gap-3 cursor-pointer">
-        <input type="checkbox" class="sr-only peer" {checked: config?.llm?.enabled} />
+        <input type="checkbox" class="sr-only peer" checked={config?.llm?.enabled} />
         <div class="w-10 h-5 bg-white/10 rounded-full peer-checked:bg-fui-purple/30 relative transition-colors">
-          <div class="w-3 h-3 bg-fui-white/60 rounded-full absolute top-1 left-1 peer-checked:left-6 transition-all" />
+          <div class="w-3 h-3 bg-fui-white/60 rounded-full absolute top-1 left-1 peer-checked:left-6 transition-all"></div>
         </div>
         <span class="text-sm font-mono text-fui-white/60">ENABLE LLM ANALYSIS</span>
       </label>
@@ -127,14 +124,14 @@
   </GlassPanel>
 
   <!-- Cleanup Settings -->
-  <GlassPanel class="p-6">
+  <GlassPanel panelClass="p-6">
     <h3 class="text-xs font-mono text-fui-white/40 mb-4 tracking-widest">CLEANUP</h3>
 
     <div class="space-y-4">
       <label class="flex items-center gap-3 cursor-pointer">
-        <input type="checkbox" class="sr-only peer" {checked: config?.cleanup?.quarantine_enabled} />
+        <input type="checkbox" class="sr-only peer" checked={config?.cleanup?.quarantine_enabled} />
         <div class="w-10 h-5 bg-white/10 rounded-full peer-checked:bg-fui-cyan/30 relative transition-colors">
-          <div class="w-3 h-3 bg-fui-white/60 rounded-full absolute top-1 left-1 peer-checked:left-6 transition-all" />
+          <div class="w-3 h-3 bg-fui-white/60 rounded-full absolute top-1 left-1 peer-checked:left-6 transition-all"></div>
         </div>
         <span class="text-sm font-mono text-fui-white/60">QUARANTINE ENABLED</span>
       </label>

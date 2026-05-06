@@ -6,7 +6,7 @@
 use crate::VulturiusError;
 use std::path::PathBuf;
 use tokio::fs;
-use tracing::{info, warn};
+use tracing::info;
 
 /// Email reporter for scheduled report delivery.
 pub struct EmailReporter;

@@ -1,9 +1,7 @@
 use serde::Serialize;
-use vulturius_core::config::AppConfig;
 use vulturius_core::db::Database;
 use vulturius_core::types::{CleanupPlan, CleanupResult, CleanupItem, CleanupOperation, RiskTolerance};
 use chrono::Utc;
-use std::path::PathBuf;
 
 #[derive(serde::Deserialize)]
 pub struct CleanupRequest {
@@ -143,7 +141,7 @@ pub async fn execute_cleanup(
 
 async fn execute_single_item(
     item: &CleanupItem,
-    use_quarantine: bool,
+    _use_quarantine: bool,
     db: &Database,
 ) -> Result<(), String> {
     let quarantine_base = std::path::PathBuf::from(".vulturius_data/quarantine");

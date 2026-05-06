@@ -1,7 +1,6 @@
 use vulturius_core::config::AppConfig;
 use vulturius_core::registry::{RegistryScanner, RegistryCleaner, RegistryEntry};
 use vulturius_core::db::Database;
-use std::path::PathBuf;
 
 /// Registry subcommand passed from main.
 #[derive(Debug, Clone)]

@@ -27,7 +27,7 @@
     {#if entries.length === 0}
       <div class="text-sm font-mono text-fui-white/30 text-center py-4">No recent activity</div>
     {:else}
-      {#each entries.slice(0, 10) as entry (entry.id || $index)}
+      {#each entries.slice(0, 10) as entry, idx (entry.id || idx)}
         <div class="flex items-center gap-3 text-xs font-mono animate-fade-in">
           <!-- Timestamp -->
           <span class="text-fui-white/20 w-16 shrink-0">

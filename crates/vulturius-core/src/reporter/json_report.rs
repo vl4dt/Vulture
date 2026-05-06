@@ -4,7 +4,7 @@ use crate::db::Database;
 use crate::reporter::ReportConfig;
 use crate::types::*;
 use crate::VulturiusError;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 /// Complete JSON report structure.

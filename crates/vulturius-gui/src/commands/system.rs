@@ -1,5 +1,4 @@
 use serde::Serialize;
-use tauri::State;
 use vulturius_core::config::AppConfig;
 use vulturius_core::db::Database;
 use vulturius_core::platform::create_platform_ops;

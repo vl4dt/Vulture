@@ -2,7 +2,7 @@
 
 use crate::db::Database;
 use crate::reporter::ReportConfig;
-use crate::types::{AppAnalysis, AppRecommendation, CleanupResult, ScanResult};
+use crate::types::{AppRecommendation, CleanupResult, ScanResult};
 use crate::VulturiusError;
 use chrono::Utc;
 

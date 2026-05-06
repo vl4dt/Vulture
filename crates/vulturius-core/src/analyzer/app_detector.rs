@@ -229,7 +229,7 @@ impl AppDetector {
 
     /// Compute app recommendation based on usage.
     fn compute_recommendation(&self, app: &AppAnalysis) -> AppRecommendation {
-        let threshold = self.config.analysis.unused_app_threshold_days as f64;
+        let _threshold = self.config.analysis.unused_app_threshold_days as f64;
 
         if app.usage_score > 0.8 {
             AppRecommendation::Active

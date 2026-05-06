@@ -1,11 +1,12 @@
 //! OpenAI-compatible API provider with retry, rate limiting, and streaming.
+#![allow(dead_code)]
 
 use std::time::Duration;
 
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tokio::time::timeout;
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 use super::{parse_analysis_response, prompts, LlmAnalysisResult, ProviderKind, StreamChunk};
 use crate::config::LlmConfig;

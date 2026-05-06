@@ -19,14 +19,13 @@
     <div
       class="absolute rounded-full border border-fui-white/5"
       style="width: {data.radius * 2}%; height: {data.radius * 2}%; top: calc(50% - {data.radius}%); left: calc(50% - {data.radius}%);"
-    />
+    ></div>
     <!-- Orbiting dots -->
     {#each Array.from({ length: data.count }) as _, i}
       <div
-        class="absolute w-2 h-2 rounded-full {data.color}"
-        class:animate-spin-slow={true}
+        class="absolute w-2 h-2 rounded-full {data.color} animate-spin-slow"
         style="animation-duration: {4 + i * 0.5}s; top: calc(50% - {data.radius}%); left: 50%;"
-      />
+      ></div>
     {/each}
   {/each}
 </div>

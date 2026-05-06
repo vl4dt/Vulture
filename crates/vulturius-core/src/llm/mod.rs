@@ -23,10 +23,7 @@ pub use streaming::{AnalysisProgress, StreamingAnalysis, run_streaming};
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::time::Duration;
 
-use serde::{Deserialize, Serialize};
-use tokio::time::timeout;
 use tracing::{debug, info, warn};
 
 use crate::config::LlmConfig;
@@ -103,6 +100,7 @@ pub struct LlmEngine {
     /// Decision cache.
     cache: Option<DecisionCache>,
     /// Rate limiter.
+    #[allow(dead_code)]
     rate_limiter: RateLimiter,
     /// Calls made in current session.
     calls_made: usize,
@@ -392,6 +390,7 @@ impl LlmEngine {
 }
 
 /// Default LlmConfig implementation helper.
+#[allow(dead_code)]
 trait DefaultLlmConfig {
     fn default_config() -> LlmConfig;
 }

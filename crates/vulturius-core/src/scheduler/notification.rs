@@ -135,6 +135,7 @@ impl NotificationService {
     fn send_linux_notification(_title: &str, _body: &str) {}
 }
 
+#[allow(dead_code)]
 fn escape_applescript(s: &str) -> String {
     s.replace('\\', "\\\\").replace('"', "\\\"")
 }

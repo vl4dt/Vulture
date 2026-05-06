@@ -23,7 +23,7 @@
 
   <!-- Quick Stats Row -->
   <div class="grid grid-cols-4 gap-4">
-    <GlassPanel class="p-4">
+    <GlassPanel panelClass="p-4">
       <div class="text-xs font-mono text-fui-white/40 mb-1">SCANNED</div>
       <div class="text-2xl font-mono data-number text-fui-cyan">
         {$analysisResults.totalFiles}
@@ -31,7 +31,7 @@
       <div class="text-xs text-fui-white/30 mt-1">files indexed</div>
     </GlassPanel>
 
-    <GlassPanel class="p-4">
+    <GlassPanel panelClass="p-4">
       <div class="text-xs font-mono text-fui-white/40 mb-1">SAFE TO DELETE</div>
       <div class="text-2xl font-mono data-number text-fui-teal">
         {$analysisResults.safeToDelete}
@@ -41,7 +41,7 @@
       </div>
     </GlassPanel>
 
-    <GlassPanel class="p-4">
+    <GlassPanel panelClass="p-4">
       <div class="text-xs font-mono text-fui-white/40 mb-1">CAUTION</div>
       <div class="text-2xl font-mono data-number text-fui-amber">
         {$analysisResults.caution}
@@ -49,7 +49,7 @@
       <div class="text-xs text-fui-white/30 mt-1">review needed</div>
     </GlassPanel>
 
-    <GlassPanel class="p-4">
+    <GlassPanel panelClass="p-4">
       <div class="text-xs font-mono text-fui-white/40 mb-1">PROTECTED</div>
       <div class="text-2xl font-mono data-number text-fui-crimson">
         {$analysisResults.doNotDelete}
@@ -75,12 +75,12 @@
   </div>
 
   <!-- Drive Info -->
-  <GlassPanel class="p-4 scan-line-overlay">
+  <GlassPanel panelClass="p-4 scan-line-overlay">
     <h3 class="text-xs font-mono text-fui-white/40 mb-3 tracking-widest">STORAGE MAP</h3>
     <div class="space-y-2">
       {#each $systemInfo.drives as drive}
         <div class="flex items-center gap-3">
-          <div class="w-2 h-2 rounded-full bg-fui-cyan/60" />
+          <div class="w-2 h-2 rounded-full bg-fui-cyan/60"></div>
           <span class="text-sm font-mono text-fui-white/70 flex-1">
             {drive.mount_point || 'Unknown'}
           </span>
@@ -89,9 +89,9 @@
           </span>
         </div>
       {/each}
-      {$systemInfo.drives.length === 0 && (
+      {#if $systemInfo.drives.length === 0}
         <div class="text-sm text-fui-white/30 font-mono">No drives detected</div>
-      )}
+      {/if}
     </div>
   </GlassPanel>
 

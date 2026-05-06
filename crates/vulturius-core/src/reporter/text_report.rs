@@ -2,7 +2,7 @@
 
 use crate::db::Database;
 use crate::reporter::ReportConfig;
-use crate::types::{AppAnalysis, AppRecommendation, FileAnalysis, FileCategory, Recommendation};
+use crate::types::{AppRecommendation, FileAnalysis, FileCategory, Recommendation};
 use crate::VulturiusError;
 use chrono::Utc;
 
@@ -258,6 +258,7 @@ impl<'a> TextReportBuilder<'a> {
 }
 
 /// Format a file category for display.
+#[allow(dead_code)]
 pub fn format_category(cat: &FileCategory) -> String {
     match cat {
         FileCategory::Temp => "Temp",

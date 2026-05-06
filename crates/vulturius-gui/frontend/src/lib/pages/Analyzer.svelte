@@ -44,16 +44,13 @@
   </div>
 
   <!-- Analysis Controls -->
-  <GlassPanel class="p-6">
+  <GlassPanel panelClass="p-6">
     <h3 class="text-xs font-mono text-fui-white/40 mb-4 tracking-widest">ANALYSIS CONTROLS</h3>
 
     <div class="flex gap-4 mb-4">
       {#each riskLevels as level}
         <button
-          class="px-3 py-1 rounded text-xs font-mono transition-all fui-hover"
-          class:bg-fui-cyan/20={$riskTolerance === level}
-          class:text-fui-cyan={$riskTolerance === level}
-          class:text-fui-white/40={$riskTolerance !== level}
+          class={`px-3 py-1 rounded text-xs font-mono transition-all fui-hover ${$riskTolerance === level ? 'bg-fui-cyan/20 text-fui-cyan' : 'text-fui-white/40'}`}
           onclick={() => riskTolerance.set(level)}
         >
           {level.toUpperCase()}
@@ -72,19 +69,19 @@
 
   <!-- Results Summary -->
   <div class="grid grid-cols-3 gap-4">
-    <GlassPanel class="p-4">
+    <GlassPanel panelClass="p-4">
       <div class="text-xs font-mono text-fui-white/40 mb-1">SAFE TO DELETE</div>
       <div class="text-3xl font-mono data-number text-fui-teal">
         {$analysisResults.safeToDelete}
       </div>
     </GlassPanel>
-    <GlassPanel class="p-4">
+    <GlassPanel panelClass="p-4">
       <div class="text-xs font-mono text-fui-white/40 mb-1">CAUTION</div>
       <div class="text-3xl font-mono data-number text-fui-amber">
         {$analysisResults.caution}
       </div>
     </GlassPanel>
-    <GlassPanel class="p-4">
+    <GlassPanel panelClass="p-4">
       <div class="text-xs font-mono text-fui-white/40 mb-1">PROTECTED</div>
       <div class="text-3xl font-mono data-number text-fui-crimson">
         {$analysisResults.doNotDelete}
@@ -93,7 +90,7 @@
   </div>
 
   <!-- Confidence Heatmap -->
-  <GlassPanel class="p-4 scan-line-overlay">
+  <GlassPanel panelClass="p-4 scan-line-overlay">
     <h3 class="text-xs font-mono text-fui-white/40 mb-3 tracking-widest">CONFIDENCE HEATMAP</h3>
     <Heatmap />
   </GlassPanel>

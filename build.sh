@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Vulturius Build Script
-# Cross-platform build with release packaging
+# Full workspace build with release packaging
 #
 # Usage: ./build.sh [target] [options]
-#   targets: all, linux, windows, macos-x86, macos-arm, cli-only
-#   options: --debug, --bench, --docs
+#   targets: all, linux, windows, macos-x86, macos-arm, cli-only, gui-only
+#   options: --debug, --bench, --docs, --skip-gui
 
 set -euo pipefail
 
@@ -19,6 +19,7 @@ PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DIST_DIR="${PROJECT_DIR}/dist"
 PROFILE="release"
 TARGET="${1:-all}"
+BUILD_GUI=true
 
 # Parse options
 for arg in "$@"; do
@@ -26,6 +27,7 @@ for arg in "$@"; do
         --debug) PROFILE="debug" ;;
         --bench) PROFILE="bench" ;;
         --docs) PROFILE="doc" ;;
+        --skip-gui) BUILD_GUI=false ;;
     esac
 done
 
@@ -39,22 +41,38 @@ preflight() {
     command -v cargo >/dev/null 2>&1 || { err "Rust/Cargo not found"; exit 1; }
     rustc --version
     cargo --version
+
+    if [ "$BUILD_GUI" = true ]; then
+        command -v npm >/dev/null 2>&1 || { err "npm/Node.js not found (required for GUI)"; exit 1; }
+        command -v tauri >/dev/null 2>&1 || { err "Tauri CLI not found. Install with: cargo install tauri-cli --version ^2"; exit 1; }
+        tauri --version
+    fi
+
     mkdir -p "$DIST_DIR"
 }
 
-# Build for a specific target
-build_target() {
+# Build the frontend (Svelte + Vite)
+build_frontend() {
+    log "Building frontend..."
+    local frontend_dir="${PROJECT_DIR}/crates/vulturius-gui/frontend"
+
+    cd "$frontend_dir"
+    if [ ! -d "node_modules" ]; then
+        log "Installing npm dependencies..."
+        npm ci || npm install
+    fi
+    npm run build
+    cd "$PROJECT_DIR"
+    log "Frontend built"
+}
+
+# Build the CLI (core + cli crates)
+build_cli() {
     local target=$1
     local name=$2
     local ext="${3:-}"
 
-    log "Building for ${name} (${target})..."
-
-    if [ "$PROFILE" = "doc" ]; then
-        cargo doc --workspace --no-deps
-        log "Documentation built in target/doc/"
-        return
-    fi
+    log "Building CLI for ${name} (${target})..."
 
     cargo build --${PROFILE} --target "$target" -p vulturius-core -p vulturius-cli
 
@@ -62,21 +80,16 @@ build_target() {
     local src="target/${target}/${PROFILE}/${bin_name}"
 
     if [ ! -f "$src" ]; then
-        err "Binary not found: $src"
+        err "CLI binary not found: $src"
         return 1
     fi
 
     # Create dist directory
-    local dist_subdir="${DIST_DIR}/vulturius-${name}"
+    local dist_subdir="${DIST_DIR}/vulturius-cli-${name}"
     mkdir -p "$dist_subdir"
 
     # Copy binary
     cp "$src" "$dist_subdir/"
-
-    # Strip (Linux only)
-    if [[ "$name" == linux* ]]; then
-        strip "$dist_subdir/$bin_name" 2>/dev/null || true
-    fi
 
     # Copy docs
     cp LICENSE "$dist_subdir/" 2>/dev/null || true
@@ -84,54 +97,126 @@ build_target() {
 
     # Create archive
     if [[ "$name" == windows* ]]; then
-        # Windows: use zip
         cd "$DIST_DIR"
         if command -v zip >/dev/null 2>&1; then
-            zip -r "vulturius-${name}.zip" "vulturius-${name}"
+            zip -r "vulturius-cli-${name}.zip" "vulturius-cli-${name}"
         else
             warn "zip not found, skipping archive creation"
         fi
         cd "$PROJECT_DIR"
     else
-        tar czf "${DIST_DIR}/vulturius-${name}.tar.gz" -C "$DIST_DIR" "vulturius-${name}"
+        tar czf "${DIST_DIR}/vulturius-cli-${name}.tar.gz" -C "$DIST_DIR" "vulturius-cli-${name}"
     fi
 
-    log "Built: vulturius-${name}"
+    log "Built CLI: vulturius-cli-${name}"
 }
 
-# Main build
+# Build the GUI (Tauri)
+build_gui() {
+    local target=$1
+    local name=$2
+
+    log "Building GUI for ${name} (${target})..."
+
+    local gui_dir="${PROJECT_DIR}/crates/vulturius-gui"
+    cd "$gui_dir"
+
+    export TAURI_CI=true
+    # Build with Tauri (release is default, --debug for debug builds)
+    tauri_args=("build")
+    if [ -n "$target" ]; then tauri_args+=("--target" "$target"); fi
+    if [ "$PROFILE" = "debug" ]; then tauri_args+=("--debug"); fi
+
+    tauri "${tauri_args[@]}" 2>&1
+
+    cd "$PROJECT_DIR"
+
+    # Copy Tauri output to dist
+    local tauri_bundle_dir="${PROJECT_DIR}/target/release/bundle"
+
+    if [ -d "$tauri_bundle_dir" ]; then
+        log "Copying GUI artifacts to dist..."
+        find "$tauri_bundle_dir" -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.nsis" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.dmg" -o -name "*.pkg" \) | while read -r file; do
+            local ext=".${file##*.}"
+            local out_name="vulturius-gui-${name}${ext}"
+            cp "$file" "${DIST_DIR}/${out_name}"
+            log "Copied: ${out_name}"
+        done
+    else
+        warn "No Tauri bundle directory found"
+    fi
+
+    log "Built GUI: vulturius-gui-${name}"
+}
+
+# Build for a specific platform (CLI + GUI)
+build_platform() {
+    local target=$1
+    local name=$2
+    local ext="${3:-}"
+
+    # Build CLI
+    build_cli "$target" "$name" "$ext"
+
+    # Build GUI if enabled
+    if [ "$BUILD_GUI" = true ]; then
+        if [ "${FRONTEND_BUILT:-false}" = false ]; then
+            build_frontend
+            FRONTEND_BUILT=true
+        fi
+        build_gui "$target" "$name"
+    fi
+}
+
+# Main
+FRONTEND_BUILT=false
+
+if [ "$PROFILE" = "doc" ]; then
+    preflight
+    cargo doc --workspace --no-deps
+    log "Documentation built in target/doc/"
+    exit 0
+fi
+
 case $TARGET in
     all)
         preflight
-        build_target "x86_64-unknown-linux-gnu" "linux-x86_64" ""
-        build_target "x86_64-pc-windows-msvc" "windows-x86_64" ".exe"
-        build_target "x86_64-apple-darwin" "macos-x86_64" ""
-        build_target "aarch64-apple-darwin" "macos-aarch64" ""
+        build_platform "x86_64-unknown-linux-gnu" "linux-x86_64" ""
+        build_platform "x86_64-pc-windows-msvc" "windows-x86_64" ".exe"
+        build_platform "x86_64-apple-darwin" "macos-x86_64" ""
+        build_platform "aarch64-apple-darwin" "macos-aarch64" ""
         ;;
     linux)
         preflight
-        build_target "x86_64-unknown-linux-gnu" "linux-x86_64" ""
+        build_platform "x86_64-unknown-linux-gnu" "linux-x86_64" ""
         ;;
     windows)
         preflight
-        build_target "x86_64-pc-windows-msvc" "windows-x86_64" ".exe"
+        build_platform "x86_64-pc-windows-msvc" "windows-x86_64" ".exe"
         ;;
     macos-x86)
         preflight
-        build_target "x86_64-apple-darwin" "macos-x86_64" ""
+        build_platform "x86_64-apple-darwin" "macos-x86_64" ""
         ;;
     macos-arm)
         preflight
-        build_target "aarch64-apple-darwin" "macos-aarch64" ""
+        build_platform "aarch64-apple-darwin" "macos-aarch64" ""
         ;;
     cli-only)
         preflight
         cargo build --${PROFILE} -p vulturius-core -p vulturius-cli
         log "CLI built (no packaging)"
         ;;
+    gui-only)
+        preflight
+        BUILD_GUI=true
+        build_frontend
+        FRONTEND_BUILT=true
+        build_gui "x86_64-pc-windows-msvc" "windows-x86_64"
+        ;;
     *)
         err "Unknown target: $TARGET"
-        echo "Available targets: all, linux, windows, macos-x86, macos-arm, cli-only"
+        echo "Available targets: all, linux, windows, macos-x86, macos-arm, cli-only, gui-only"
         exit 1
         ;;
 esac

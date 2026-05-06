@@ -3,7 +3,7 @@
 //! Uses AES-GCM to encrypt API keys at rest. Keys are encrypted with a
 //! master key derived from the OS environment or a user-provided passphrase.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use aes_gcm::aead::Aead;
 use aes_gcm::{Aes256Gcm, Key, Nonce};

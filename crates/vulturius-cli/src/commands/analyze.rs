@@ -2,7 +2,6 @@ use vulturius_core::config::AppConfig;
 use vulturius_core::analyzer::Analyzer;
 use vulturius_core::types::RiskTolerance;
 use vulturius_core::db::Database;
-use std::path::PathBuf;
 
 pub async fn handle(config: &AppConfig) -> anyhow::Result<()> {
     println!("\n  \u{1b}[38;2;0;240;255m⠿ VULTURIUS\u{1b}[0m — Analyzer");

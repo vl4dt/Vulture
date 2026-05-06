@@ -28,4 +28,4 @@ tauri-plugin-notification = { workspace = true }
 vulturius-core = { workspace = true }
 
 [build-dependencies]
-tauri-build = "2"
+tauri-build = { version = "2.6", features = [] }

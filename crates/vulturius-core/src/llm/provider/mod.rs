@@ -6,7 +6,6 @@ pub mod anthropic;
 pub mod ollama;
 pub mod openai;
 
-use crate::types::FileEntry;
 use crate::Result;
 
 /// Result of LLM analysis for a single file.

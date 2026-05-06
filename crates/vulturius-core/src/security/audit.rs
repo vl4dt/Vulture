@@ -6,14 +6,11 @@
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
-use tracing::{info, warn};
 
-use crate::security::permission::{Operation, PrivilegeLevel};
 
 /// Maximum number of audit entries kept in memory.
 const MAX_AUDIT_ENTRIES: usize = 10_000;

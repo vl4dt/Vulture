@@ -1,11 +1,9 @@
 use crate::config::AppConfig;
 use crate::db::Database;
-use crate::platform::PlatformOps;
 use crate::types::*;
 use crate::VulturiusError;
 
 use chrono::Utc;
-use std::collections::HashSet;
 use std::path::PathBuf;
 use tokio::fs;
 use tracing::{info, warn, error};

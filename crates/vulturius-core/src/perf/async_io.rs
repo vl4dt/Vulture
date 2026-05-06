@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use sha2::{Sha256, Digest};
 use tokio::sync::Semaphore;
-use tracing::{info, warn};
+use tracing::info;
 
 use crate::VulturiusError;
 

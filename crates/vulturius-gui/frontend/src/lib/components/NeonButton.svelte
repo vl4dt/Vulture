@@ -1,6 +1,5 @@
 <script lang="ts">
-  export let color: 'cyan' | 'teal' | 'amber' | 'crimson' | 'purple' = 'cyan';
-  export let disabled: boolean = false;
+  let { color = 'cyan', disabled = false, children } = $props();
 
   const colorMap = {
     cyan: { bg: 'bg-fui-cyan/10', text: 'text-fui-cyan', border: 'border-fui-cyan/30', shadow: 'shadow-glow-cyan', hoverBg: 'hover:bg-fui-cyan/20' },
@@ -10,13 +9,13 @@
     purple: { bg: 'bg-fui-purple/10', text: 'text-fui-purple', border: 'border-fui-purple/30', shadow: 'shadow-glow-purple', hoverBg: 'hover:bg-fui-purple/20' },
   };
 
-  const c = colorMap[color];
+  let c = $derived(colorMap[color]);
 </script>
 
 <button
   class="px-6 py-3 rounded-lg font-mono text-sm font-bold tracking-wider transition-all duration-200 {c.bg} {c.text} border {c.border} {c.shadow} {c.hoverBg} disabled:opacity-30 disabled:cursor-not-allowed"
-  class:animate-pulse-glow={color === 'cyan' && !disabled}
+  class:animate-pulse-glow={(color === 'cyan' && !disabled)}
   {disabled}
 >
-  <slot />
+  {@render children()}
 </button>

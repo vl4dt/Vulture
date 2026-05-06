@@ -1,8 +1,9 @@
 import './styles/global.css';
+import { mount } from 'svelte';
 import App from './app.svelte';
 
-const app = new App({
+console.log('Vulturius: mounting app...');
+mount(App, {
   target: document.getElementById('app')!,
 });
-
-export default app;
+console.log('Vulturius: app mounted');

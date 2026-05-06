@@ -1,8 +1,8 @@
 use vulturius_core::config::AppConfig;
 use vulturius_core::scanner::Scanner;
-use vulturius_core::analyzer::{Analyzer, AppDetector};
+use vulturius_core::analyzer::Analyzer;
 use vulturius_core::cleaner::Cleaner;
-use vulturius_core::types::{RiskTolerance, ScanType, Recommendation};
+use vulturius_core::types::{RiskTolerance, ScanType};
 use vulturius_core::db::Database;
 use vulturius_core::ScanTarget;
 use std::path::PathBuf;

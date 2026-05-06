@@ -1,10 +1,11 @@
 //! Ollama (local) provider with model auto-discovery.
+#![allow(dead_code)]
 
 use std::collections::HashSet;
 use std::time::Duration;
 
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tokio::time::timeout;
 use tracing::{debug, info, warn};
 

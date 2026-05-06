@@ -11,8 +11,8 @@
     "fs:allow-read-dir",
     "fs:allow-copy-file",
     "fs:allow-mkdir",
-    "fs:remove",
-    "fs:watch",
+    "fs:allow-remove",
+    "fs:allow-watch",
     "fs:write-all",
     "fs:read-all",
     "notification:default"

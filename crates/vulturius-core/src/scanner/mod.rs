@@ -52,7 +52,9 @@ struct SharedState {
 
 pub struct Scanner {
     config: AppConfig,
+    #[allow(dead_code)]
     platform: Box<dyn PlatformOps>,
+    #[allow(dead_code)]
     classifier: FileClassifier,
 }
 

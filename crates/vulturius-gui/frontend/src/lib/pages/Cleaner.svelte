@@ -61,7 +61,7 @@
   {/if}
 
   <!-- Cleanup Controls -->
-  <GlassPanel class="p-6">
+  <GlassPanel panelClass="p-6">
     <h3 class="text-xs font-mono text-fui-white/40 mb-4 tracking-widest">CLEANUP CONTROLS</h3>
 
     <div class="space-y-4 mb-6">
@@ -74,7 +74,7 @@
           class="sr-only peer"
         />
         <div class="w-10 h-5 bg-white/10 rounded-full peer-checked:bg-fui-cyan/30 relative transition-colors">
-          <div class="w-3 h-3 bg-fui-white/60 rounded-full absolute top-1 left-1 peer-checked:left-6 transition-all" />
+          <div class="w-3 h-3 bg-fui-white/60 rounded-full absolute top-1 left-1 peer-checked:left-6 transition-all"></div>
         </div>
         <span class="text-sm font-mono text-fui-white/60">DRY RUN MODE</span>
       </label>
@@ -88,7 +88,7 @@
           class="sr-only peer"
         />
         <div class="w-10 h-5 bg-white/10 rounded-full peer-checked:bg-fui-cyan/30 relative transition-colors">
-          <div class="w-3 h-3 bg-fui-white/60 rounded-full absolute top-1 left-1 peer-checked:left-6 transition-all" />
+          <div class="w-3 h-3 bg-fui-white/60 rounded-full absolute top-1 left-1 peer-checked:left-6 transition-all"></div>
         </div>
         <span class="text-sm font-mono text-fui-white/60">QUARANTINE (safe delete)</span>
       </label>
@@ -105,7 +105,7 @@
 
   <!-- Cleanup Results -->
   {#if !cleaning && cleanupStatus.itemsProcessed > 0}
-    <GlassPanel class="p-6">
+    <GlassPanel panelClass="p-6">
       <h3 class="text-xs font-mono text-fui-white/40 mb-4 tracking-widest">RESULTS</h3>
 
       <div class="grid grid-cols-4 gap-4">

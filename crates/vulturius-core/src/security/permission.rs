@@ -6,7 +6,6 @@
 use std::collections::HashSet;
 use std::path::Path;
 
-use tracing::{info, warn};
 
 /// Privilege level for the current session.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -221,7 +220,7 @@ impl PermissionModel {
     pub fn check_path_operation(
         &self,
         operation: Operation,
-        path: &Path,
+        _path: &Path,
         is_system_path: bool,
     ) -> PermissionResult {
         // If it's a system path, require admin

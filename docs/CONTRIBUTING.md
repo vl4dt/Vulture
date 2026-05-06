@@ -33,8 +33,85 @@ Vulture/
 │   ├── vulturius-core/     # Core library (all business logic)
 │   ├── vulturius-cli/      # CLI application
 │   └── vulturius-gui/      # Tauri 2 desktop GUI
+├── build.sh                # Bash build script (Linux/macOS)
+├── build.ps1               # PowerShell build script (Windows)
 ├── .github/workflows/      # CI/CD pipelines
 └── docs/                   # Documentation
+```
+
+## Building for Distribution
+
+The project includes build scripts for packaging release artifacts across platforms.
+Both the **CLI** and **GUI** (Tauri desktop app) are built by default.
+
+### Prerequisites (GUI builds)
+- **Node.js 18+** and **npm** (for the Svelte frontend)
+- **Tauri CLI 2**: `cargo install tauri-cli --version ^2`
+
+### Linux / macOS (Bash)
+```bash
+# Build for a specific platform (CLI + GUI)
+./build.sh windows
+./build.sh linux
+./build.sh macos-x86
+./build.sh macos-arm
+
+# Build for all platforms (requires cross-compilation targets)
+./build.sh all
+
+# Build only the CLI (skip GUI)
+./build.sh windows --skip-gui
+./build.sh cli-only
+
+# Build only the GUI
+./build.sh gui-only
+
+# Debug build
+./build.sh windows --debug
+```
+
+### Windows (PowerShell)
+```powershell
+# Build for Windows (CLI + GUI)
+.\build.ps1 windows
+
+# Build for all platforms
+.\build.ps1 all
+
+# Build only the CLI (skip GUI)
+.\build.ps1 windows -SkipGUI
+.\build.ps1 cli-only
+
+# Build only the GUI
+.\build.ps1 gui-only
+
+# Debug build
+.\build.ps1 windows -Debug
+```
+
+### Output
+Both scripts produce packaged artifacts in the `dist/` directory:
+```
+dist/
+├── vulturius-cli-windows-x86_64/
+│   ├── vulturius-cli.exe
+│   ├── LICENSE
+│   └── README.md
+├── vulturius-cli-windows-x86_64.zip
+├── vulturius-gui-windows-x86_64.exe    # NSIS installer
+├── vulturius-cli-linux-x86_64/
+│   └── vulturius-cli
+├── vulturius-cli-linux-x86_64.tar.gz
+└── ...
+```
+
+### Cross-Compilation Setup
+For `all` target builds, install the required Rust targets:
+```bash
+rustup target add x86_64-unknown-linux-gnu
+rustup target add x86_64-pc-windows-msvc
+rustup target add x86_64-apple-darwin
+rustup target add aarch64-apple-darwin
 ```
 
 ## Development Workflow

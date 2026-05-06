@@ -113,6 +113,7 @@ fn parse_interval(s: &str) -> Duration {
 pub struct Scheduler {
     config: SchedulerConfig,
     db: Database,
+    #[allow(dead_code)]
     app_config: AppConfig,
     running: Arc<Mutex<bool>>,
 }

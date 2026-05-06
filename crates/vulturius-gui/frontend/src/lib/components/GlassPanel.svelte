@@ -1,7 +1,7 @@
 <script lang="ts">
-  export let class: string = '';
+  let { panelClass = '', children } = $props();
 </script>
 
-<div class="fui-glass {class}">
-  <slot />
+<div class="fui-glass {panelClass}">
+  {@render children()}
 </div>

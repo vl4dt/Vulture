@@ -23,12 +23,12 @@
     loadApps();
   });
 
-  const filteredApps = apps.filter(app => {
+  let filteredApps = $derived(apps.filter(app => {
     if (filter === 'all') return true;
     if (filter === 'unused') return app.recommendation === 'unused' || app.recommendation === 'rarely-used';
     if (filter === 'active') return app.recommendation === 'active' || app.recommendation === 'essential';
     return true;
-  });
+  }));
 
   function recommendationColor(rec: string): string {
     switch (rec) {
@@ -48,13 +48,11 @@
   </div>
 
   <!-- Filters -->
-  <GlassPanel class="p-4">
+  <GlassPanel panelClass="p-4">
     <div class="flex gap-3">
       {#each ['all', 'unused', 'active'] as f}
         <button
-          class="px-4 py-2 rounded-lg font-mono text-xs transition-all fui-hover"
-          class:bg-fui-cyan/20 text-fui-cyan={filter === f}
-          class:text-fui-white/40={filter !== f}
+          class={`px-4 py-2 rounded-lg font-mono text-xs transition-all fui-hover ${filter === f ? 'bg-fui-cyan/20 text-fui-cyan' : 'text-fui-white/40'}`}
           onclick={() => filter = f as any}
         >
           {f.toUpperCase()}
@@ -64,7 +62,7 @@
   </GlassPanel>
 
   <!-- App List -->
-  <GlassPanel class="p-4 scan-line-overlay">
+  <GlassPanel panelClass="p-4 scan-line-overlay">
     <h3 class="text-xs font-mono text-fui-white/40 mb-3 tracking-widest">
       INSTALLED APPLICATIONS ({filteredApps.length})
     </h3>
@@ -78,7 +76,7 @@
         {#each filteredApps as app (app.id)}
           <div class="fui-glass p-3 flex items-center gap-4 fui-hover transition-all">
             <!-- Usage indicator -->
-            <div class="w-2 h-2 rounded-full" class:bg-fui-teal={app.usage_score > 0.5} class:bg-fui-amber={app.usage_score > 0.2 && app.usage_score <= 0.5} class:bg-fui-crimson={app.usage_score <= 0.2} />
+            <div class="w-2 h-2 rounded-full" class:bg-fui-teal={app.usage_score > 0.5} class:bg-fui-amber={app.usage_score > 0.2 && app.usage_score <= 0.5} class:bg-fui-crimson={app.usage_score <= 0.2}></div>
 
             <!-- App info -->
             <div class="flex-1 min-w-0">

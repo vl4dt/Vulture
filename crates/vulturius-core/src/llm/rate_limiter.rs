@@ -81,6 +81,7 @@ impl TokenBucket {
     }
 
     /// Calculate wait time for a given number of tokens.
+    #[allow(dead_code)]
     fn wait_time_for(&self, amount: u64) -> Duration {
         let needed = amount.saturating_sub(self.tokens);
         if needed == 0 {

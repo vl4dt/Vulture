@@ -45,22 +45,18 @@
   </div>
 
   <!-- Scan Controls -->
-  <GlassPanel class="p-6">
+  <GlassPanel panelClass="p-6">
     <h3 class="text-xs font-mono text-fui-white/40 mb-4 tracking-widest">SCAN CONFIGURATION</h3>
 
     <div class="flex gap-4 mb-6">
       <button
-        class="px-4 py-2 rounded-lg font-mono text-sm transition-all fui-hover"
-        class:bg-fui-cyan/20 text-fui-cyan={scanType === 'full'}
-        class:text-fui-white/40={scanType !== 'full'}
+        class={`px-4 py-2 rounded-lg font-mono text-sm transition-all fui-hover ${scanType === 'full' ? 'bg-fui-cyan/20 text-fui-cyan' : 'text-fui-white/40'}`}
         onclick={() => scanType = 'full'}
       >
         FULL SCAN
       </button>
       <button
-        class="px-4 py-2 rounded-lg font-mono text-sm transition-all fui-hover"
-        class:bg-fui-cyan/20 text-fui-cyan={scanType === 'quick'}
-        class:text-fui-white/40={scanType !== 'quick'}
+        class={`px-4 py-2 rounded-lg font-mono text-sm transition-all fui-hover ${scanType === 'quick' ? 'bg-fui-cyan/20 text-fui-cyan' : 'text-fui-white/40'}`}
         onclick={() => scanType = 'quick'}
       >
         QUICK SCAN
@@ -78,7 +74,7 @@
 
   <!-- Live Progress -->
   {#if $scanProgress.inProgress}
-    <GlassPanel class="p-6">
+    <GlassPanel panelClass="p-6">
       <h3 class="text-xs font-mono text-fui-white/40 mb-4 tracking-widest">LIVE PROGRESS</h3>
 
       <div class="space-y-3">
@@ -102,7 +98,7 @@
           <div
             class="h-full bg-fui-cyan transition-all duration-300 rounded-full"
             style="width: {$scanProgress.percentage}%"
-          />
+          ></div>
         </div>
       </div>
     </GlassPanel>

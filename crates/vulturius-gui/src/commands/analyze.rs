@@ -37,7 +37,7 @@ pub async fn analyze_files(
         .map_err(|e| format!("Failed to load scan: {}", e))?
         .ok_or("Scan not found".to_string())?;
 
-    let risk_tolerance = match request.risk_tolerance.as_deref() {
+    let _risk_tolerance = match request.risk_tolerance.as_deref() {
         Some("paranoid") => RiskTolerance::Paranoid,
         Some("conservative") => RiskTolerance::Conservative,
         Some("aggressive") => RiskTolerance::Aggressive,

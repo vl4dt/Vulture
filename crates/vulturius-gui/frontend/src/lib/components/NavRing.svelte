@@ -25,17 +25,14 @@
   <div class="fui-glass rounded-full p-2 flex flex-col gap-1">
     {#each navItems as item (item.id)}
       <button
-        class="relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 fui-hover"
-        class:bg-white/10={$currentPage === item.id}
-        class:text-fui-cyan={$currentPage === item.id}
-        class:shadow-glow-cyan={$currentPage === item.id}
-        on:click={() => navigate(item.id)}
+        class={`relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 fui-hover ${$currentPage === item.id ? 'bg-white/10 text-fui-cyan shadow-glow-cyan' : ''}`}
+        onclick={() => navigate(item.id)}
         title={item.label}
       >
         <span class="text-lg">{item.icon}</span>
         <!-- Active indicator -->
         {#if $currentPage === item.id}
-          <span class="absolute -right-1 w-1 h-1 rounded-full bg-fui-cyan animate-pulse" />
+          <span class="absolute -right-1 w-1 h-1 rounded-full bg-fui-cyan animate-pulse"></span>
         {/if}
       </button>
     {/each}

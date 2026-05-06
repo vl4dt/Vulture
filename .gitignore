@@ -14,3 +14,5 @@ release/
 *.msi
 *.exe
 !.cargo/config.toml
+node_modules/
+package-lock.json

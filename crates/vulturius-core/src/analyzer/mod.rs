@@ -1,7 +1,6 @@
 use crate::config::AppConfig;
 use crate::platform::create_platform_ops;
 use crate::types::*;
-use crate::VulturiusError;
 
 use std::time::SystemTime;
 
@@ -11,6 +10,7 @@ pub use app_detector::AppDetector;
 /// Analyzes scan results and generates cleanup recommendations.
 pub struct Analyzer {
     config: AppConfig,
+    #[allow(dead_code)]
     platform: Box<dyn crate::platform::PlatformOps>,
 }
 
