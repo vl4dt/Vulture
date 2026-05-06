@@ -1,10 +1,10 @@
 # Vulturius — Development Progress Tracker
 
-> Auto-maintained across sessions. Last updated: 2026-05-05 (Session 3 — Phases 7-9 complete)
+> Auto-maintained across sessions. Last updated: 2026-05-05 (Session 3 — Phases 7-10 complete)
 
 ---
 
-## Overall Status: Phases 1-9 ✅ | Phases 10-12 ❌
+## Overall Status: Phases 1-10 ✅ | Phases 11-12 ❌
 
 | Phase | Description | Status | Completion | Tests |
 |-------|-------------|--------|-----------|-------|
@@ -17,7 +17,7 @@
 | Phase 7 | LLM Providers (production-grade, rate limiting, streaming, encryption) | ✅ Complete | 100% | 50 |
 | Phase 8 | Reporting Engine (HTML/JSON with charts, trend analysis) | ✅ Complete | 100% | 6 |
 | Phase 9 | Scheduling (cron-like, auto-cleanup, notifications) | ✅ Complete | 100% | 11 |
-| Phase 10 | Performance Hardening (benchmarks, memory profiling) | ❌ Not Started | 0% | — |
+| Phase 10 | Performance Hardening (benchmarks, memory profiling) | ✅ Complete | 100% | 16 |
 | Phase 11 | Security Audit (sandboxing, permission model) | ❌ Not Started | 0% | — |
 | Phase 12 | Packaging & Release (CI/CD, installer, docs) | ❌ Not Started | 0% | — |
 
@@ -239,13 +239,46 @@
 - [x] Notification types (icon, urgency, format) (3 tests)
 - [x] Startup manager (2 tests)
 
-## Phase 10: Performance Hardening ❌
+## Phase 10: Performance Hardening ✅
 
-- [ ] Benchmark suite (scan speed, memory usage)
-- [ ] Memory profiling and leak detection
-- [ ] Scan optimization (skip unchanged dirs)
-- [ ] Parallel I/O tuning
-- [ ] Database query optimization
+- [x] Criterion benchmark suite (8 benchmark groups, 20+ individual benchmarks)
+- [x] Memory profiling support (dhat integration, allocation benchmarks)
+- [x] Scan optimization — incremental scan with mtime-based change detection
+- [x] Parallel I/O tuning — async hashing, buffered reads, worker pool auto-tuning
+- [x] Database query optimization — WAL mode, 11 performance indexes, batch inserts
+- [x] 5 new Rust files in perf/ (bench, incremental, async_io, db_opt)
+- [x] 16 new unit tests (133 total, all passing)
+- [x] Full workspace compiles cleanly
+
+### Performance Architecture
+- `AsyncHasher` — Semaphore-gated async file hashing with buffered reads (128KB default)
+- `AsyncIoConfig` — Tunable I/O config (buffer size, concurrency, storage type detection)
+- `StorageType` — SSD/HDD/Network auto-detection with concurrency recommendations
+- `WorkerPoolTuner` — Auto-scales workers by CPU cores + available RAM
+- `DirectorySnapshot` — mtime-based directory change tracking for incremental scans
+- `IncrementalScanState` — Skips unchanged directories between scan runs
+- `DbOptimizer` — WAL mode, PRAGMA tuning (cache=-8192, sync=NORMAL, mmap=256MB)
+- `BatchInserter` — Configurable batch accumulation for bulk DB inserts
+- `BufferedFileReader` — Chunked file reading with callback processing
+
+### Benchmark Groups (criterion)
+- [x] `classifier` — classify_single_path, classify_batch (100/1K/10K)
+- [x] `file_entry` — create_entries (100/1K/10K)
+- [x] `safety_score` — safety_score_all_categories
+- [x] `hashing` — hash_small/medium/large, hash_buffer_size comparison (1K/4K/16K/64K)
+- [x] `incremental_scan` — snapshot_record_dir, snapshot_check_unchanged, state_check
+- [x] `batch_inserter` — insert_batch (100/500/1000 batch sizes)
+- [x] `memory` — file_entry_allocation_1k/10k, classifier_path_allocation
+- [x] `db_optimizer` — index_creation_overhead
+
+### Test Coverage (16 tests)
+- [x] Async hasher (sync hash, deterministic hash, async hash, buffer reader) (5 tests)
+- [x] Storage type concurrency recommendations (1 test)
+- [x] Worker pool tuner (1 test)
+- [x] Directory snapshot (record/check/new dir/stale) (5 tests)
+- [x] Incremental scan state (disabled/full_scan) (2 tests)
+- [x] Batch inserter (single/multiple batches) (2 tests)
+- [x] DB optimizer (WAL, indexes, db_size) (3 tests)
 
 ## Phase 11: Security Audit ❌
 
@@ -272,10 +305,10 @@
 | Metric | Value |
 |--------|-------|
 | Crates | 3 (`vulturius-core`, `vulturius-cli`, `vulturius-gui`) |
-| Rust source files | 59 |
+| Rust source files | 64 |
 | Frontend files (Svelte/TS/CSS) | 22 |
 | Total lines of code | ~14,200 (Rust) + ~3,500 (frontend) ≈ 17,700 |
-| Unit tests | **117 passing** (up from 90) |
+| Unit tests | **133 passing** (up from 117) |
 | Tauri commands | 16 |
 | GUI pages | 6 |
 | GUI components | 10 |
@@ -325,6 +358,18 @@
   - **Report saving** to disk (individual or all formats)
   - **4 new Rust files** in `reporter/` (text_report, html_report, json_report, trend)
   - **6 new unit tests** (90 total, all passing)
+  - Full workspace compiles cleanly
+- **Implemented** Phase 10 — Performance Hardening:
+  - **Criterion benchmark suite** — 8 benchmark groups, 20+ individual benchmarks
+  - **Memory profiling** — dhat integration, allocation benchmarks (1K/10K entries)
+  - **Incremental scan** — mtime-based directory change detection, skip unchanged dirs
+  - **Async I/O tuning** — AsyncHasher with semaphore concurrency, buffered reads (128KB)
+  - **Worker pool auto-tuning** — scales by CPU cores + available RAM
+  - **Storage type detection** — SSD/HDD/Network with per-type concurrency limits
+  - **Database optimization** — WAL mode, PRAGMA tuning, 11 performance indexes
+  - **Batch insert helper** — configurable batch accumulation for bulk DB writes
+  - **5 new Rust files** in `perf/` (bench, incremental, async_io, db_opt)
+  - **16 new unit tests** (133 total, all passing)
   - Full workspace compiles cleanly
 - **Implemented** Phase 9 — Scheduling System:
   - **Cron-like scheduler** with interval parsing ("7d", "24h", "6h", "30m")

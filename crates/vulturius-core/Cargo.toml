@@ -38,3 +38,9 @@ percent-encoding = "2"
 
 [dev-dependencies]
 tempfile = "3"
+criterion = "0.5"
+dhat = "0.3"
+
+[[bench]]
+name = "perf_benchmarks"
+harness = false
