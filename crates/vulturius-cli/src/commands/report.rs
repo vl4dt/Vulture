@@ -16,6 +16,7 @@ pub async fn handle(_config: &AppConfig, format: String, output: Option<String>)
 
     let report_format = match format.to_lowercase().as_str() {
         "html" => ReportFormat::Html,
+        "json" => ReportFormat::Json,
         "text" | "txt" => ReportFormat::Text,
         _ => {
             println!("  ⚠ Unknown format '{}', defaulting to text", format);
@@ -31,8 +32,9 @@ pub async fn handle(_config: &AppConfig, format: String, output: Option<String>)
         println!("  \u{1b}[38;2;0;212;170m✓ Report saved to {}\u{1b}[0m", output_path);
     } else {
         let content = match report_format {
-            ReportFormat::Html => reporter.generate_html_report().await.map_err(|e| anyhow::anyhow!(e))?,
-            ReportFormat::Text => reporter.generate_text_report().await.map_err(|e| anyhow::anyhow!(e))?,
+            ReportFormat::Html => reporter.generate_html().await.map_err(|e| anyhow::anyhow!(e))?,
+            ReportFormat::Text => reporter.generate_text().await.map_err(|e| anyhow::anyhow!(e))?,
+            ReportFormat::Json => reporter.generate_json().await.map_err(|e| anyhow::anyhow!(e))?,
         };
         println!("{}", content);
     }

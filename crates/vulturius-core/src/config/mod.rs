@@ -64,6 +64,14 @@ pub struct ScheduleConfig {
     pub auto_scan_enabled: bool,
     pub auto_scan_interval: String,
     pub auto_clean: bool,
+    pub auto_clean_interval: String,
+    pub notify_on_scan_complete: bool,
+    pub notify_on_cleanup_complete: bool,
+    pub email_reports_enabled: bool,
+    pub email_recipient: String,
+    pub email_smtp_server: String,
+    pub email_smtp_port: u16,
+    pub run_on_startup: bool,
 }
 
 impl Default for AppConfig {
@@ -112,6 +120,14 @@ impl Default for AppConfig {
                 auto_scan_enabled: false,
                 auto_scan_interval: "7d".to_string(),
                 auto_clean: false,
+                auto_clean_interval: "7d".to_string(),
+                notify_on_scan_complete: true,
+                notify_on_cleanup_complete: true,
+                email_reports_enabled: false,
+                email_recipient: String::new(),
+                email_smtp_server: String::new(),
+                email_smtp_port: 587,
+                run_on_startup: false,
             },
         }
     }

@@ -6,6 +6,7 @@ use crate::types::*;
 use crate::VulturiusError;
 
 /// SQLite database for persisting scan results, analysis, and cleanup history.
+#[derive(Clone)]
 pub struct Database {
     pool: SqlitePool,
 }
