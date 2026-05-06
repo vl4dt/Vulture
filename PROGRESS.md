@@ -1,10 +1,10 @@
 # Vulturius — Development Progress Tracker
 
-> Auto-maintained across sessions. Last updated: 2026-05-05 (Session 3 — Phases 7-10 complete)
+> Auto-maintained across sessions. Last updated: 2026-05-05 (Session 3 — Phases 7-11 complete)
 
 ---
 
-## Overall Status: Phases 1-10 ✅ | Phases 11-12 ❌
+## Overall Status: Phases 1-11 ✅ | Phase 12 ❌
 
 | Phase | Description | Status | Completion | Tests |
 |-------|-------------|--------|-----------|-------|
@@ -18,7 +18,7 @@
 | Phase 8 | Reporting Engine (HTML/JSON with charts, trend analysis) | ✅ Complete | 100% | 6 |
 | Phase 9 | Scheduling (cron-like, auto-cleanup, notifications) | ✅ Complete | 100% | 11 |
 | Phase 10 | Performance Hardening (benchmarks, memory profiling) | ✅ Complete | 100% | 16 |
-| Phase 11 | Security Audit (sandboxing, permission model) | ❌ Not Started | 0% | — |
+| Phase 11 | Security Audit (sandboxing, permission model) | ✅ Complete | 100% | 38 |
 | Phase 12 | Packaging & Release (CI/CD, installer, docs) | ❌ Not Started | 0% | — |
 
 ---
@@ -280,13 +280,34 @@
 - [x] Batch inserter (single/multiple batches) (2 tests)
 - [x] DB optimizer (WAL, indexes, db_size) (3 tests)
 
-## Phase 11: Security Audit ❌
+## Phase 11: Security Audit ✅
 
-- [ ] Sandboxed file operations
-- [ ] Permission model (admin vs user)
-- [ ] Path traversal protection
-- [x] API key encryption ✅ (done in Phase 7)
-- [ ] Audit logging
+- [x] Sandboxed file operations (allowed path enforcement, blocklist)
+- [x] Permission model (admin/user/read-only privilege levels, operation matrix)
+- [x] Path traversal protection (directory escape prevention, `..` detection, Windows device blocking)
+- [x] Audit logging (in-memory + disk, severity levels, JSON export, security summary)
+- [x] 4 new Rust files in security/ (sandbox, permission, path_guard, audit)
+- [x] 38 new unit tests (171 total, all passing)
+- [x] Full workspace compiles cleanly
+
+### Security Architecture
+- `PathSandbox` — Allowed root paths with blocklist override, configurable enable/disable
+- `SandboxBuilder` — Builder pattern for sandbox configuration
+- `PermissionModel` — Three-tier privilege system (Administrator/User/ReadOnly)
+- `Operation` — 14 operation types with min_privilege, is_destructive, requires_confirmation
+- `PermissionResult` — Allowed/Denied/InsufficientPrivilege with confirmation tracking
+- `PathGuard` — Validates paths against traversal attacks (`..`, null bytes, depth, device names)
+- `PathGuard::sanitize_filename` — Removes dangerous characters from filenames
+- `AuditLogger` — Bounded in-memory log (10K entries) with optional disk persistence
+- `AuditLogger::security_summary` — Quick security posture overview
+- `AuditSeverity` — Info/Warning/Critical/Error levels
+- `AuditEventType` — FileOperation, PermissionCheck, PrivilegeEscalation, PolicyViolation, ConfigChange, ScanEvent, CleanupEvent, QuarantineAction, Custom
+
+### Test Coverage (38 tests)
+- [x] PathSandbox (6 tests: allow/block/unrestricted/disabled/empty-roots/blocklist-override)
+- [x] PermissionModel (10 tests: privilege levels, operation checks, explicit allow/deny, system path)
+- [x] PathGuard (12 tests: safe path, traversal block, null byte, depth, sanitize, safe_join, cleanup path)
+- [x] AuditLogger (10 tests: basic logging, file operation, permission check, policy violation, max entries, clear, disk logging, JSON export, security summary, severity filter)
 
 ## Phase 12: Packaging & Release ❌
 
@@ -305,10 +326,10 @@
 | Metric | Value |
 |--------|-------|
 | Crates | 3 (`vulturius-core`, `vulturius-cli`, `vulturius-gui`) |
-| Rust source files | 64 |
+| Rust source files | 68 |
 | Frontend files (Svelte/TS/CSS) | 22 |
 | Total lines of code | ~14,200 (Rust) + ~3,500 (frontend) ≈ 17,700 |
-| Unit tests | **133 passing** (up from 117) |
+| Unit tests | **171 passing** (up from 133) |
 | Tauri commands | 16 |
 | GUI pages | 6 |
 | GUI components | 10 |
@@ -358,6 +379,17 @@
   - **Report saving** to disk (individual or all formats)
   - **4 new Rust files** in `reporter/` (text_report, html_report, json_report, trend)
   - **6 new unit tests** (90 total, all passing)
+  - Full workspace compiles cleanly
+- **Implemented** Phase 11 — Security Audit:
+  - **Path sandboxing** — PathSandbox with allowed roots, blocklist override, enable/disable
+  - **Permission model** — Three-tier privilege system (Administrator/User/ReadOnly)
+  - **Operation matrix** — 14 operation types with privilege requirements and destructiveness flags
+  - **Path traversal protection** — PathGuard validates against `..` escape, null bytes, depth limits, Windows device names
+  - **Filename sanitization** — Removes dangerous characters, safe path joining
+  - **Audit logging** — Bounded in-memory log (10K entries) with optional disk persistence
+  - **Security summary** — Quick security posture overview with severity breakdown
+  - **4 new Rust files** in `security/` (sandbox, permission, path_guard, audit)
+  - **38 new unit tests** (171 total, all passing)
   - Full workspace compiles cleanly
 - **Implemented** Phase 10 — Performance Hardening:
   - **Criterion benchmark suite** — 8 benchmark groups, 20+ individual benchmarks

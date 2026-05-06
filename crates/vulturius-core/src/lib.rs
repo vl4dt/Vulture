@@ -10,6 +10,7 @@ pub mod registry;
 pub mod reporter;
 pub mod scanner;
 pub mod scheduler;
+pub mod security;
 pub mod types;
 
 // Re-export commonly used types
@@ -25,3 +26,4 @@ pub use reporter::*;
 pub use registry::*;
 pub use scheduler::*;
 pub use perf::*;
+pub use security::*;
