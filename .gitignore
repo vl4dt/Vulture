@@ -6,6 +6,7 @@ Cargo.lock
 !.env.example
 .quarantine/
 .vulturius/
+.vulturius_data/
 *.log
 dist/
 release/

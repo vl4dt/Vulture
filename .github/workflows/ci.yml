@@ -1,0 +1,180 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ─── Lint & Format ──────────────────────────────────────────────────────────
+
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Clippy (all targets)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+  # ─── Test on all platforms ──────────────────────────────────────────────────
+
+  test-linux:
+    name: Test (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libssl-dev \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Run tests
+        run: cargo test --workspace -- --test-threads=4
+
+      - name: Run benchmarks (smoke test)
+        run: cargo bench -p vulturius-core -- --noplot 2>&1 | head -100
+
+  test-windows:
+    name: Test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --workspace -- --test-threads=4
+
+  test-macos:
+    name: Test (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests
+        run: cargo test --workspace -- --test-threads=4
+
+  # ─── Build release artifacts ────────────────────────────────────────────────
+
+  build:
+    name: Build Release
+    needs: [lint, test-linux, test-windows, test-macos]
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            build-type: linux
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            build-type: windows
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            build-type: macos-x86
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            build-type: macos-arm
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build core + CLI (release)
+        run: |
+          cargo build --release -p vulturius-core -p vulturius-cli
+
+      - name: Strip binary (Linux)
+        if: matrix.build-type == 'linux'
+        run: strip target/release/vulturius-cli
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ "${{ matrix.build-type }}" = "windows" ]; then
+            cp target/release/vulturius-cli.exe dist/
+            cp target/release/vulturius-cli.pdb dist/ 2>/dev/null || true
+          else
+            cp target/release/vulturius-cli dist/
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulturius-${{ matrix.build-type }}
+          path: dist/
+          retention-days: 30
+
+  # ─── Documentation ──────────────────────────────────────────────────────────
+
+  docs:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build docs
+        run: cargo doc --workspace --no-deps
+
+      - name: Upload docs
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-docs
+          path: target/doc/
+          retention-days: 7
