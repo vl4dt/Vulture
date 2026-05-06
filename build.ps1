@@ -64,7 +64,7 @@ function Build-Frontend {
         # Install dependencies
         if (-not (Test-Path (Join-Path $frontendDir "node_modules"))) {
             Log "Installing npm dependencies..."
-            if (-not (npm ci)) { npm install }
+            npm install
         }
 
         # Build frontend
@@ -115,7 +115,7 @@ function Build-CLI {
 
     # Create archive
     $zipPath = Join-Path $DistDir "vulturius-cli-${Name}.zip"
-    Compress-Archive -Path $distSubdir -DestinationPath $zipPath -Force
+    Compress-Archive -Path (Join-Path $distSubdir "*") -DestinationPath $zipPath -Force
 
     Log "Built CLI: vulturius-cli-${Name}"
 }
@@ -138,15 +138,18 @@ function Build-GUI {
         $tauriArgs = @("build")
         if ($Profile -eq "debug") { $tauriArgs += "--debug" }
 
-        & tauri $tauriArgs 2>&1
+        $tauriResult = & tauri $tauriArgs
+        if ($LASTEXITCODE -ne 0) {
+            Err "Tauri build failed (exit code $LASTEXITCODE)"
+        }
     }
     finally {
         Pop-Location
     }
 
     # Copy Tauri output to dist
-    # Tauri outputs to target/release/bundle/ (workspace root)
-    $tauriBundleDir = Join-Path $ProjectDir "target\release\bundle"
+    # Tauri outputs to target/{profile}/bundle/ (workspace root)
+    $tauriBundleDir = Join-Path $ProjectDir "target\$Profile\bundle"
 
     if (Test-Path $tauriBundleDir) {
         Log "Copying GUI artifacts to dist..."

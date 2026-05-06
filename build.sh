@@ -56,10 +56,10 @@ build_frontend() {
     log "Building frontend..."
     local frontend_dir="${PROJECT_DIR}/crates/vulturius-gui/frontend"
 
-    cd "$frontend_dir"
+    cd "$frontend_dir" || exit 1
     if [ ! -d "node_modules" ]; then
         log "Installing npm dependencies..."
-        npm ci || npm install
+        npm install
     fi
     npm run build
     cd "$PROJECT_DIR"
@@ -97,13 +97,13 @@ build_cli() {
 
     # Create archive
     if [[ "$name" == windows* ]]; then
-        cd "$DIST_DIR"
+        cd "$DIST_DIR" || exit 1
         if command -v zip >/dev/null 2>&1; then
             zip -r "vulturius-cli-${name}.zip" "vulturius-cli-${name}"
         else
             warn "zip not found, skipping archive creation"
         fi
-        cd "$PROJECT_DIR"
+        cd "$PROJECT_DIR" || exit 1
     else
         tar czf "${DIST_DIR}/vulturius-cli-${name}.tar.gz" -C "$DIST_DIR" "vulturius-cli-${name}"
     fi
@@ -119,7 +119,7 @@ build_gui() {
     log "Building GUI for ${name} (${target})..."
 
     local gui_dir="${PROJECT_DIR}/crates/vulturius-gui"
-    cd "$gui_dir"
+    cd "$gui_dir" || exit 1
 
     export TAURI_CI=true
     # Build with Tauri (release is default, --debug for debug builds)
@@ -127,12 +127,12 @@ build_gui() {
     if [ -n "$target" ]; then tauri_args+=("--target" "$target"); fi
     if [ "$PROFILE" = "debug" ]; then tauri_args+=("--debug"); fi
 
-    tauri "${tauri_args[@]}" 2>&1
+    tauri "${tauri_args[@]}"
 
-    cd "$PROJECT_DIR"
+    cd "$PROJECT_DIR" || exit 1
 
     # Copy Tauri output to dist
-    local tauri_bundle_dir="${PROJECT_DIR}/target/release/bundle"
+    local tauri_bundle_dir="${PROJECT_DIR}/target/${PROFILE}/bundle"
 
     if [ -d "$tauri_bundle_dir" ]; then
         log "Copying GUI artifacts to dist..."
