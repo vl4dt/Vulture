@@ -7,8 +7,32 @@
   import RadarSweep from '../components/RadarSweep.svelte';
 
   let scanning = $state(false);
-  let scanType = $state<'quick' | 'full'>('full');
+  let scanType = $state<'full' | 'quick' | 'custom'>('full');
   let scanMessage = $state('');
+  let targetPath = $state('');
+  let minFileSizeMb = $state(0); // 0 = no limit
+  let selectedTypes = $state<string[]>([]);
+
+  const allFileTypes = [
+    { id: 'temp', label: 'Temp' },
+    { id: 'cache', label: 'Cache' },
+    { id: 'log', label: 'Logs' },
+    { id: 'crashdump', label: 'Crash Dumps' },
+    { id: 'thumbnail', label: 'Thumbnails' },
+    { id: 'download', label: 'Downloads' },
+    { id: 'package', label: 'Package Cache' },
+    { id: 'browser', label: 'Browser Data' },
+    { id: 'backup', label: 'Backups' },
+    { id: 'duplicate', label: 'Duplicates' },
+  ];
+
+  function toggleType(id: string) {
+    if (selectedTypes.includes(id)) {
+      selectedTypes = selectedTypes.filter(t => t !== id);
+    } else {
+      selectedTypes = [...selectedTypes, id];
+    }
+  }
 
   // Listen for scan progress events
   $effect(() => {
@@ -56,6 +80,9 @@
         request: {
           scanType,
           quick: scanType === 'quick',
+          targetPath: targetPath || undefined,
+          fileTypes: selectedTypes.length > 0 ? selectedTypes : undefined,
+          minFileSizeMb: minFileSizeMb > 0 ? minFileSizeMb : undefined,
         },
       });
       scanMessage = `Scan complete. ID: ${result}`;
@@ -89,7 +116,8 @@
   <GlassPanel panelClass="p-6">
     <h3 class="text-xs font-mono text-fui-white/40 mb-4 tracking-widest">SCAN CONFIGURATION</h3>
 
-    <div class="flex gap-4 mb-6">
+    <!-- Scan Type -->
+    <div class="flex gap-4 mb-4">
       <button
         class={`px-4 py-2 rounded-lg font-mono text-sm transition-all fui-hover ${scanType === 'full' ? 'bg-fui-cyan/20 text-fui-cyan' : 'text-fui-white/40'}`}
         onclick={() => scanType = 'full'}
@@ -102,8 +130,59 @@
       >
         QUICK SCAN
       </button>
+      <button
+        class={`px-4 py-2 rounded-lg font-mono text-sm transition-all fui-hover ${scanType === 'custom' ? 'bg-fui-cyan/20 text-fui-cyan' : 'text-fui-white/40'}`}
+        onclick={() => scanType = 'custom'}
+      >
+        CUSTOM
+      </button>
     </div>
 
+    <!-- Custom Options -->
+    {#if scanType === 'custom'}
+      <!-- Target Path -->
+      <div class="mb-4">
+        <label class="text-xs font-mono text-fui-white/40 block mb-1">TARGET PATH (leave empty for full scan)</label>
+        <input
+          type="text"
+          bind:value={targetPath}
+          placeholder="e.g. C:\Users\vl4dt\Downloads or C:\Windows\Temp"
+          class="w-full px-3 py-2 rounded-lg font-mono text-sm bg-fui-panel border border-fui-cyan/10 text-fui-white/70 placeholder:text-fui-white/20"
+        />
+      </div>
+
+      <!-- Min File Size -->
+      <div class="mb-4">
+        <label class="text-xs font-mono text-fui-white/40 block mb-1">MIN FILE SIZE (MB, 0 = no limit)</label>
+        <input
+          type="number"
+          bind:value={minFileSizeMb}
+          min="0"
+          step="1"
+          class="w-full px-3 py-2 rounded-lg font-mono text-sm bg-fui-panel border border-fui-cyan/10 text-fui-white/70"
+        />
+      </div>
+
+      <!-- File Type Filter -->
+      <div class="mb-4">
+        <label class="text-xs font-mono text-fui-white/40 block mb-2">FILE TYPES (leave empty for all)</label>
+        <div class="grid grid-cols-2 gap-2">
+          {#each allFileTypes as ft}
+            <label class="flex items-center gap-2 cursor-pointer text-xs font-mono text-fui-white/60">
+              <input
+                type="checkbox"
+                checked={selectedTypes.includes(ft.id)}
+                onchange={() => toggleType(ft.id)}
+                class="accent-fui-cyan"
+              />
+              {ft.label}
+            </label>
+          {/each}
+        </div>
+      </div>
+    {/if}
+
+    <!-- Action Buttons -->
     <div class="flex gap-3">
       <NeonButton color="cyan" disabled={scanning} onclick={startScan} class="flex-1">
         {scanning ? '◉ SCANNING...' : '◉ START SCAN'}

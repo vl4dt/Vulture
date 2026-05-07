@@ -126,6 +126,7 @@ pub struct ScanTarget {
     pub exclusions: Vec<String>,
     pub max_depth: Option<usize>,
     pub file_types: Option<Vec<FileCategory>>,
+    pub min_file_size: Option<u64>,
     pub collect_hashes: bool,
 }
 

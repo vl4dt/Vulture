@@ -235,6 +235,13 @@ impl Scanner {
                         );
 
                         let mut s = state.lock().await;
+                        // Filter by min file size
+                        if let Some(min_size) = target.min_file_size {
+                            if size < min_size {
+                                drop(s);
+                                continue;
+                            }
+                        }
                         s.entries.push(file_entry);
                         s.total_size += size;
                         s.file_count += 1;

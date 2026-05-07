@@ -145,6 +145,7 @@ fn build_targets(config: &AppConfig, quick: bool) -> Vec<ScanTarget> {
                     exclusions: config.scan.default_exclusions.clone(),
                     max_depth: if quick { Some(5) } else { None },
                     file_types: None,
+                    min_file_size: None,
                     collect_hashes: config.scan.collect_hashes,
                 });
             }
@@ -160,7 +161,8 @@ fn build_targets(config: &AppConfig, quick: bool) -> Vec<ScanTarget> {
                 exclusions: config.scan.default_exclusions.clone(),
                 max_depth: if quick { Some(5) } else { None },
                 file_types: None,
-                collect_hashes: config.scan.collect_hashes,
+                min_file_size: None,
+                    collect_hashes: config.scan.collect_hashes,
             });
         }
     }
@@ -172,7 +174,8 @@ fn build_targets(config: &AppConfig, quick: bool) -> Vec<ScanTarget> {
             exclusions: config.scan.default_exclusions.clone(),
             max_depth: if quick { Some(5) } else { None },
             file_types: None,
-            collect_hashes: config.scan.collect_hashes,
+            min_file_size: None,
+                    collect_hashes: config.scan.collect_hashes,
         });
     }
 

@@ -64,6 +64,7 @@ async fn e2e_scan_analyze_pipeline() {
         max_depth: None,
         exclusions: vec![],
         file_types: None,
+        min_file_size: None,
         collect_hashes: false,
     }];
 
@@ -227,6 +228,7 @@ async fn e2e_scan_does_not_modify_files() {
         max_depth: None,
         exclusions: vec![],
         file_types: None,
+        min_file_size: None,
         collect_hashes: false,
     }];
 
@@ -277,6 +279,7 @@ async fn e2e_full_scan_analyze_verify() {
         max_depth: None,
         exclusions: vec![],
         file_types: None,
+        min_file_size: None,
         collect_hashes: false,
     }];
 

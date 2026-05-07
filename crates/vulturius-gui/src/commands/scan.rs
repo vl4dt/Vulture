@@ -4,7 +4,7 @@ use vulturius_core::config::AppConfig;
 use vulturius_core::db::Database;
 use vulturius_core::scanner::Scanner;
 use vulturius_core::scanner::ScanProgress;
-use vulturius_core::types::{ScanTarget, ScanType};
+use vulturius_core::types::{FileCategory, ScanTarget, ScanType};
 
 /// Shared scan state
 pub struct ScanState {
@@ -24,6 +24,8 @@ pub struct ScanRequest {
     pub target_path: Option<String>,
     pub scan_type: Option<String>,
     pub quick: Option<bool>,
+    pub file_types: Option<Vec<String>>,
+    pub min_file_size_mb: Option<f64>,
 }
 
 #[derive(Debug, Serialize)]
@@ -53,17 +55,36 @@ pub async fn start_scan(
     let scan_type = match request.scan_type.as_deref() {
         Some("quick") => ScanType::Quick,
         Some("full") => ScanType::Full,
+        Some("custom") => ScanType::Custom,
         _ => ScanType::Full,
     };
 
     let target_path = request.target_path.unwrap_or_else(|| String::from("/"));
+
+    // Map file type strings to FileCategory enum
+    let file_types = request.file_types.map(|types| {
+        types.iter().filter_map(|t| match t.as_str() {
+            "temp" => Some(FileCategory::Temp),
+            "cache" => Some(FileCategory::Cache),
+            "log" => Some(FileCategory::Log),
+            "crashdump" => Some(FileCategory::CrashDump),
+            "thumbnail" => Some(FileCategory::Thumbnail),
+            "download" => Some(FileCategory::DownloadHelper),
+            "package" => Some(FileCategory::PackageCache),
+            "browser" => Some(FileCategory::BrowserData),
+            "backup" => Some(FileCategory::OldBackup),
+            "duplicate" => Some(FileCategory::Duplicate),
+            _ => None,
+        }).collect()
+    });
 
     let target = ScanTarget {
         path: std::path::PathBuf::from(target_path),
         scan_type: scan_type.clone(),
         exclusions: config.scan.default_exclusions.clone(),
         max_depth: if request.quick.unwrap_or(false) { Some(5) } else { None },
-        file_types: None,
+        file_types,
+        min_file_size: request.min_file_size_mb.map(|mb| (mb * 1024.0 * 1024.0) as u64),
         collect_hashes: false,
     };
 
