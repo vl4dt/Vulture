@@ -4,7 +4,12 @@ import { defineConfig } from 'vite';
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [svelte(), tailwindcss()],
+  plugins: [
+    svelte(),
+    tailwindcss({
+      content: ['src/**/*.{html,js,svelte,ts}'],
+    }),
+  ],
   clearScreen: false,
   server: {
     port: 1420,

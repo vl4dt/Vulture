@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+@source "../*";
+@source "../**/*";
+
 /* ═══════════════════════════════════════════════════════════
    VULTURIUS — FUI (Futuristic User Interface) Design System
    ═══════════════════════════════════════════════════════════ */
