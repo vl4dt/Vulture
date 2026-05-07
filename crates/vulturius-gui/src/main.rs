@@ -16,14 +16,18 @@ fn main() {
                 .with_env_filter(tracing_subscriber::EnvFilter::new("info"))
                 .init();
 
-            let db_path = app
-                .path()
-                .app_data_dir()
-                .ok()
-                .unwrap_or_else(|| std::path::PathBuf::from(".vulturius_data"))
+            let db_path = std::env::current_dir()
+                .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                .join(".vulturius_data")
                 .join("vulturius.db");
 
+            // Ensure parent directory exists
+            if let Some(parent) = db_path.parent() {
+                std::fs::create_dir_all(parent).ok();
+            }
+
             let db_path_str = db_path.to_string_lossy().to_string();
+            tracing::info!("DB path: {}", db_path_str);
 
             // Create database and initialize in one async block
             let db = tauri::async_runtime::block_on(async move {
@@ -33,15 +37,18 @@ fn main() {
                         Ok(Arc::new(db))
                     }
                     Err(e) => {
-                        tracing::error!("Failed to initialize database: {}", e);
+                        tracing::warn!("DB init failed, running without DB: {}", e);
                         Err(e)
                     }
                 }
             });
 
+            // Always manage ScanState
+            app.manage(commands::scan::ScanState::new());
+
+            // Manage DB if available
             if let Ok(db) = db {
                 app.manage(db);
-                app.manage(commands::scan::ScanState::new());
             }
 
             Ok(())
