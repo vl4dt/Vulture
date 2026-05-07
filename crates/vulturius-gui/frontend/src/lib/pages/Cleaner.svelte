@@ -43,6 +43,12 @@
     }
   }
 
+  async function stopClean() {
+    cleaning = false;
+    cleanMessage = 'Cleanup cancelled';
+    cleanupStatus.update(s => ({ ...s, inProgress: false }));
+  }
+
   function formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -94,9 +100,14 @@
       </label>
     </div>
 
-    <NeonButton color="crimson" disabled={cleaning} onclick={executeClean}>
-      {cleaning ? '✕ CLEANING...' : (dryRun ? '✕ DRY RUN' : '✕ EXECUTE CLEANUP')}
-    </NeonButton>
+    <div class="flex gap-3">
+      <NeonButton color="crimson" disabled={cleaning} onclick={executeClean} class="flex-1">
+        {cleaning ? '✕ CLEANING...' : (dryRun ? '✕ DRY RUN' : '✕ EXECUTE CLEANUP')}
+      </NeonButton>
+      <NeonButton color="amber" disabled={!cleaning} onclick={stopClean} class="flex-1">
+        ✕ STOP
+      </NeonButton>
+    </div>
 
     {#if cleanMessage}
       <div class="mt-4 text-sm font-mono text-fui-white/60">{cleanMessage}</div>

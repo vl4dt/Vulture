@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invoke } from '@tauri-apps/api/core';
+  import { listen } from '@tauri-apps/api/event';
   import { scanProgress } from '../stores/app';
   import GlassPanel from '../components/GlassPanel.svelte';
   import NeonButton from '../components/NeonButton.svelte';
@@ -8,6 +9,35 @@
   let scanning = $state(false);
   let scanType = $state<'quick' | 'full'>('full');
   let scanMessage = $state('');
+
+  // Listen for scan progress events
+  $effect(() => {
+    listen('scan-progress', (event) => {
+      const data = event.payload as { filesScanned: number; dirsScanned: number; totalSize: number; message: string };
+      scanProgress.set({
+        inProgress: true,
+        filesScanned: data.filesScanned,
+        dirsScanned: data.dirsScanned,
+        totalSize: data.totalSize,
+        percentage: Math.min(99, (data.filesScanned / 1000) * 100),
+        message: data.message,
+      });
+      scanMessage = data.message;
+    });
+
+    listen('scan-complete', (event) => {
+      const data = event.payload as { scanId: string; totalFiles: number; totalSize: number };
+      scanProgress.set({
+        inProgress: false,
+        filesScanned: data.totalFiles,
+        dirsScanned: 0,
+        totalSize: data.totalSize,
+        percentage: 100,
+        message: `Scan complete. ID: ${data.scanId}`,
+      });
+      scanMessage = `Scan complete. ${data.totalFiles} files, ${(data.totalSize / 1024 / 1024).toFixed(1)} MB. ID: ${data.scanId}`;
+    });
+  });
 
   async function startScan() {
     scanning = true;
@@ -34,6 +64,17 @@
     } finally {
       scanning = false;
       scanProgress.update(s => ({ ...s, inProgress: false }));
+    }
+  }
+
+  async function stopScan() {
+    try {
+      await invoke('cancel_scan');
+      scanning = false;
+      scanMessage = 'Scan cancelled';
+      scanProgress.update(s => ({ ...s, inProgress: false, message: 'Cancelled' }));
+    } catch (e: any) {
+      scanMessage = `Cancel failed: ${e}`;
     }
   }
 </script>
@@ -63,9 +104,14 @@
       </button>
     </div>
 
-    <NeonButton color="cyan" disabled={scanning} onclick={startScan}>
-      {scanning ? '◉ SCANNING...' : '◉ START SCAN'}
-    </NeonButton>
+    <div class="flex gap-3">
+      <NeonButton color="cyan" disabled={scanning} onclick={startScan} class="flex-1">
+        {scanning ? '◉ SCANNING...' : '◉ START SCAN'}
+      </NeonButton>
+      <NeonButton color="crimson" disabled={!scanning} onclick={stopScan} class="flex-1">
+        ✕ STOP
+      </NeonButton>
+    </div>
 
     {#if scanMessage}
       <div class="mt-4 text-sm font-mono text-fui-white/60">{scanMessage}</div>

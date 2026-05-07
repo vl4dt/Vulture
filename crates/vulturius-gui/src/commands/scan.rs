@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use vulturius_core::config::AppConfig;
 use vulturius_core::db::Database;
 use vulturius_core::scanner::Scanner;
+use vulturius_core::scanner::ScanProgress;
 use vulturius_core::types::{ScanTarget, ScanType};
 
 /// Shared scan state
@@ -37,6 +38,7 @@ pub struct ScanStatus {
 
 #[tauri::command]
 pub async fn start_scan(
+    app_handle: tauri::AppHandle,
     scan_state: tauri::State<'_, ScanState>,
     db: tauri::State<'_, Database>,
     request: ScanRequest,
@@ -74,8 +76,37 @@ pub async fn start_scan(
         scanner.scan(vec![target], Some(tx)).await
     });
 
+    // Clone app_handle for progress events (original used for scan-complete later)
+    let progress_app = app_handle.clone();
     let progress_handle = tokio::spawn(async move {
-        while rx.recv().await.is_some() {}
+        while let Some(progress) = rx.recv().await {
+            let payload = match &progress {
+                ScanProgress::Progress { files_scanned, dirs_scanned, bytes_scanned, current_path } => {
+                    let bs = *bytes_scanned as f64 / 1024.0 / 1024.0;
+                    serde_json::json!({
+                        "filesScanned": files_scanned,
+                        "dirsScanned": dirs_scanned,
+                        "totalSize": bytes_scanned,
+                        "message": format!("Scanning: {} files, {} dirs ({:.1} MB)", files_scanned, dirs_scanned, bs),
+                        "currentPath": current_path,
+                    })
+                }
+                ScanProgress::Started { .. } => continue,
+                ScanProgress::Error { path, message } => {
+                    serde_json::json!({
+                        "error": true,
+                        "path": path,
+                        "message": message,
+                    })
+                }
+                ScanProgress::Complete { .. } | ScanProgress::Cancelled => continue,
+            };
+
+            let _ = tauri::async_runtime::block_on(async {
+                use tauri::Emitter;
+                progress_app.emit("scan-progress", &payload).ok()
+            });
+        }
     });
 
     let result = tokio::time::timeout(std::time::Duration::from_secs(300), scan_handle).await;
@@ -102,6 +133,14 @@ pub async fn start_scan(
     if let Err(e) = db.save_scan(&scan_result).await {
         tracing::error!("Failed to save scan result: {}", e);
     }
+
+    // Final progress event
+    use tauri::Emitter;
+    let _ = app_handle.emit("scan-complete", &serde_json::json!({
+        "scanId": &scan_id,
+        "totalFiles": scan_result.total_files,
+        "totalSize": scan_result.total_size,
+    })).ok();
 
     *scan_state.in_progress.lock().unwrap() = false;
     progress_handle.abort();

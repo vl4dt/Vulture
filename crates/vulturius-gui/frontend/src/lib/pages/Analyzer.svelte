@@ -30,6 +30,11 @@
     }
   }
 
+  async function stopAnalysis() {
+    analyzing = false;
+    analyzeMessage = 'Analysis cancelled';
+  }
+
   function confidenceColor(score: number): string {
     if (score >= 0.75) return 'text-fui-teal';
     if (score >= 0.5) return 'text-fui-amber';
@@ -58,9 +63,14 @@
       {/each}
     </div>
 
-    <NeonButton color="amber" disabled={analyzing} onclick={runAnalysis}>
-      {analyzing ? '⚡ ANALYZING...' : '⚡ RUN ANALYSIS'}
-    </NeonButton>
+    <div class="flex gap-3">
+      <NeonButton color="amber" disabled={analyzing} onclick={runAnalysis} class="flex-1">
+        {analyzing ? '⚡ ANALYZING...' : '⚡ RUN ANALYSIS'}
+      </NeonButton>
+      <NeonButton color="crimson" disabled={!analyzing} onclick={stopAnalysis} class="flex-1">
+        ✕ STOP
+      </NeonButton>
+    </div>
 
     {#if analyzeMessage}
       <div class="mt-4 text-sm font-mono text-fui-white/60">{analyzeMessage}</div>
